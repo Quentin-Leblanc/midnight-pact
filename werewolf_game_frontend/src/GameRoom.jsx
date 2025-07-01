@@ -146,6 +146,14 @@ const PHASE_INFO = {
     bgClass: 'night-phase',
     duration: 0,
   },
+  lobby: {
+    name: 'Préparation',
+    description: 'Découvrez votre rôle secret',
+    icon: Users,
+    color: 'text-green-200',
+    bgClass: 'lobby-phase',
+    duration: 10,
+  },
   night: {
     name: 'Nuit',
     description: "Les créatures de la nuit agissent dans l'ombre",
@@ -403,11 +411,9 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
   const [currentVote, setCurrentVote] = useState(null);
   const [voteHistory, setVoteHistory] = useState([]);
   const [selectedActions, setSelectedActions] = useState({}); // Actions sélectionnées pour affichage visuel
-  const [showCountdown, setShowCountdown] = useState(false);
+  // 🔧 CORRECTION : Machine à états d'animation simplifiée
+  const [currentAnimation, setCurrentAnimation] = useState(null);
   const [countdownNumber, setCountdownNumber] = useState(3);
-  const [showGameStartAnimation, setShowGameStartAnimation] = useState(false);
-  const [showNightAnimation, setShowNightAnimation] = useState(false);
-  const [showDayAnimation, setShowDayAnimation] = useState(false);
 
   useEffect(() => {
     fetchGameData();
@@ -416,18 +422,21 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
   }, [roomCode, playerName]);
 
   useEffect(() => {
-    // Handle phase transitions avec animations pleine écran
+    // 🔧 CORRECTION : Gestion simplifiée des transitions de phase
     if (lastPhase && gameState && lastPhase !== gameState.phase) {
       // Clear les événements lors du changement de phase
       setPhaseEvents('');
 
-      // Animation spécifique pour le passage à la phase jour
-      if (gameState.phase === 'day') {
-        setShowDayAnimation(true);
-        setTimeout(() => setShowDayAnimation(false), 3000);
+      // Gérer les animations selon la nouvelle phase
+      if (gameState.phase === 'lobby') {
+        setCurrentAnimation('lobby');
+        setTimeout(() => setCurrentAnimation(null), 5000);
+      } else if (gameState.phase === 'day') {
+        setCurrentAnimation('day_start');
+        setTimeout(() => setCurrentAnimation(null), 3000);
       } else if (gameState.phase === 'night') {
-        setShowNightAnimation(true);
-        setTimeout(() => setShowNightAnimation(false), 3000);
+        setCurrentAnimation('night_start');
+        setTimeout(() => setCurrentAnimation(null), 3000);
       }
     }
     setLastPhase(gameState?.phase);
@@ -544,8 +553,8 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
 
   const startGame = async () => {
     try {
-      // Lancer le countdown avant de démarrer la partie
-      setShowCountdown(true);
+      // 🔧 CORRECTION : Séquence d'animation simplifiée
+      setCurrentAnimation('countdown');
 
       const countdownSequence = () => {
         let count = 3;
@@ -557,15 +566,16 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
             setCountdownNumber(count);
           } else {
             clearInterval(countdownInterval);
-            setShowCountdown(false);
-            setShowGameStartAnimation(true);
+            setCurrentAnimation('game_start');
 
             // Faire la requête pour démarrer la partie
             startGameRequest();
 
-            // Cacher l'animation après 3 secondes
+            // L'animation se terminera automatiquement à la transition vers lobby
             setTimeout(() => {
-              setShowGameStartAnimation(false);
+              if (currentAnimation === 'game_start') {
+                setCurrentAnimation(null);
+              }
             }, 3000);
           }
         }, 1000);
@@ -1086,6 +1096,108 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
     );
   }
 
+  // 🆕 Affichage spécial pour la phase LOBBY
+  if (gameState && gameState.phase === 'lobby' && playerRole) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-900 via-blue-800 to-green-900 relative">
+        {/* Animations de transition */}
+        {currentAnimation === 'lobby' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-r from-green-900 via-blue-800 to-green-900 lobby-animation">
+            <div className="text-center">
+              <div className="text-6xl mb-4 animate-bounce">🎭</div>
+              <h2 className="text-4xl font-bold text-green-100 drop-shadow-lg">
+                Découvrez votre rôle !
+              </h2>
+              <p className="text-xl text-green-200/90 mt-2">
+                Votre destinée vous attend...
+              </p>
+              <p className="text-lg text-green-300/80 mt-1">
+                Préparez-vous pour la première nuit
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="relative z-10 p-4 flex items-center justify-center min-h-screen">
+          <div className="container mx-auto max-w-4xl">
+            <Card className="bg-slate-800/90 border-slate-700 backdrop-blur-md">
+              <CardHeader className="text-center">
+                <CardTitle className="text-3xl font-bold text-white mb-2">
+                  🎭 Votre Rôle Secret
+                </CardTitle>
+                <CardDescription className="text-green-200 text-lg">
+                  Mémorisez bien votre mission...
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="text-center space-y-6">
+                {/* Affichage du rôle */}
+                <div className={`p-6 rounded-lg bg-slate-700/50 ${ROLE_DESCRIPTIONS[playerRole.role]?.glowClass || ''}`}>
+                  <div className="flex items-center justify-center space-x-4 mb-4">
+                    <div className="p-3 rounded-full bg-slate-600/50">
+                      {ROLE_DESCRIPTIONS[playerRole.role]?.icon && 
+                        React.createElement(ROLE_DESCRIPTIONS[playerRole.role].icon, {
+                          className: `w-12 h-12 ${ROLE_DESCRIPTIONS[playerRole.role].color}`
+                        })
+                      }
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-white">
+                        {ROLE_DESCRIPTIONS[playerRole.role]?.name || playerRole.role}
+                      </h3>
+                      <p className="text-slate-400">
+                        {ROLE_DESCRIPTIONS[playerRole.role]?.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-slate-300 text-base leading-relaxed">
+                    {ROLE_DESCRIPTIONS[playerRole.role]?.detailedDescription}
+                  </p>
+
+                  {/* Affichage équipe loup-garou si applicable */}
+                  {playerRole.role === 'werewolf' && playerRole.werewolf_team && (
+                    <div className="mt-4 p-4 bg-red-900/30 rounded-lg">
+                      <p className="text-red-400 font-medium mb-2">Votre meute :</p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {playerRole.werewolf_team.map((teammate) => (
+                          <Badge key={teammate} variant="destructive" className="animate-pulse">
+                            🐺 {teammate}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Timer et phase info */}
+                <div className="bg-slate-700/30 p-4 rounded-lg">
+                  <div className="text-green-400 font-bold text-xl mb-2">
+                    Phase de Préparation
+                  </div>
+                  <div className="text-white text-lg">
+                    {formatTime(gameState.remaining_time || 0)}
+                  </div>
+                  <Progress 
+                    value={getProgressPercentage()} 
+                    className="w-full h-2 mt-2" 
+                  />
+                  <p className="text-slate-400 text-sm mt-2">
+                    La première nuit commencera bientôt...
+                  </p>
+                </div>
+
+                <p className="text-slate-500 text-sm">
+                  Gardez votre rôle secret ! La survie du village en dépend.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!gameState || !playerRole) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
@@ -1133,8 +1245,8 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
 
   return (
     <div className={`min-h-screen ${getTransitionClass()} relative`}>
-      {/* Countdown avant démarrage - thème loup-garou */}
-      {showCountdown && (
+      {/* 🔧 CORRECTION : Gestion unifiée des animations */}
+      {currentAnimation === 'countdown' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 via-red-900 to-black backdrop-blur-sm">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-bounce">🌙</div>
@@ -1151,8 +1263,7 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
         </div>
       )}
 
-      {/* Animation de démarrage - thème loup-garou */}
-      {showGameStartAnimation && (
+      {currentAnimation === 'game_start' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-r from-slate-900 via-red-800 to-slate-900 game-start-fade">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-bounce">🐺</div>
@@ -1169,8 +1280,25 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
         </div>
       )}
 
-      {/* Animation de nuit - thème loup-garou */}
-      {showNightAnimation && (
+      {/* 🆕 Animation LOBBY - Découverte du rôle */}
+      {currentAnimation === 'lobby' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-r from-green-900 via-blue-800 to-green-900 lobby-animation">
+          <div className="text-center">
+            <div className="text-6xl mb-4 animate-bounce">🎭</div>
+            <h2 className="text-4xl font-bold text-green-100 drop-shadow-lg">
+              Découvrez votre rôle !
+            </h2>
+            <p className="text-xl text-green-200/90 mt-2">
+              Votre destinée vous attend...
+            </p>
+            <p className="text-lg text-green-300/80 mt-1">
+              Préparez-vous pour la première nuit
+            </p>
+          </div>
+        </div>
+      )}
+
+      {currentAnimation === 'night_start' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-r from-slate-900 via-gray-900 to-black night-animation">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-pulse">🌙</div>
@@ -1187,8 +1315,7 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
         </div>
       )}
 
-      {/* Animation de jour - thème loup-garou */}
-      {showDayAnimation && (
+      {currentAnimation === 'day_start' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-r from-orange-600 via-yellow-500 to-orange-600 day-animation">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-bounce">☀️</div>

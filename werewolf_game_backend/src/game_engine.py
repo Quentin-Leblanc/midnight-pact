@@ -12,6 +12,7 @@ class Role(Enum):
 
 class Phase(Enum):
     WAITING = "waiting"
+    LOBBY = "lobby"      # 🆕 Phase de découverte des rôles
     NIGHT = "night"
     DAY = "day"
     VOTING = "voting"
@@ -92,18 +93,26 @@ class GameEngine:
         # Clear chat messages from waiting phase
         game['chat_messages'] = []
         
-        # Start first night
+        # 🔧 CORRECTION : Commencer par la phase LOBBY (pas NIGHT)
         game['status'] = 'active'
-        game['phase'] = Phase.NIGHT
+        game['phase'] = Phase.LOBBY
         game['day_count'] = 1
         game['phase_start_time'] = datetime.now()
-        game['phase_duration'] = 60  # 60 seconds for night phase
+        game['phase_duration'] = 10  # 10 secondes pour découvrir son rôle
         
         game['phase_history'].append({
-            'phase': Phase.NIGHT.value,
+            'phase': Phase.LOBBY.value,
             'day': game['day_count'],
             'start_time': game['phase_start_time'].isoformat(),
             'duration': game['phase_duration']
+        })
+        
+        # Ajouter événement de début de partie
+        game['game_history'].append({
+            'type': 'game_start',
+            'phase': 'lobby',
+            'day': game['day_count'],
+            'description': 'La partie commence ! Les rôles ont été distribués.'
         })
         
         return True, "Game started successfully"
@@ -156,8 +165,12 @@ class GameEngine:
         
         game = self.games[game_id]
         
-        # Vérifier d'abord si le jeu doit se terminer
-        if game['status'] == 'active' and game['phase'] != Phase.ENDED:
+        # 🔧 CORRECTION : Ne vérifier la fin de jeu qu'après la phase LOBBY
+        # et seulement après au moins une nuit complète pour éviter les victoires instantanées
+        if (game['status'] == 'active' and 
+            game['phase'] not in [Phase.ENDED, Phase.LOBBY] and
+            game['day_count'] >= 1 and
+            game['phase'] not in [Phase.NIGHT]):  # Éviter de vérifier pendant la première nuit
             if self._check_game_end(game):
                 # Le jeu vient de se terminer
                 game['status'] = 'ended'
@@ -332,7 +345,15 @@ class GameEngine:
         
         game = self.games[game_id]
         
-        if game['phase'] == Phase.NIGHT:
+        # 🔧 CORRECTION : Gérer la transition LOBBY → NIGHT
+        if game['phase'] == Phase.LOBBY:
+            # Transition du lobby vers la première nuit
+            print(f"DEBUG: Moving from lobby to night phase for game {game_id}")
+            game['phase'] = Phase.NIGHT
+            game['phase_start_time'] = datetime.now()
+            game['phase_duration'] = 60  # 60 secondes pour la phase de nuit
+            
+        elif game['phase'] == Phase.NIGHT:
             # Process night actions
             print(f"DEBUG: Processing night actions for game {game_id}")
             self._process_night_actions(game)
