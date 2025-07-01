@@ -103,29 +103,48 @@
 - ✅ Gestion des déconnexions pendant procès  
 - ✅ Race conditions sur les votes simultanés
 
-### 🎯 **Sprint 1.2 : Ordre Actions Nocturnes** (1 semaine)
+### 🎯 **Sprint 1.2 : Chat Nocturne & Communications** (1 semaine) ✅ **TERMINÉ**
 **💻 Développeur :**
-- [ ] Implémenter l'ordre SC2 à 11 étapes
-- [ ] Gérer les actions simultanées vs séquentielles
-- [ ] Système de priorité pour résoudre les conflits
-
-**🐛 Bugs Potentiels :**
-- Actions interdépendantes (Bus Driver + autres)
-- Paradoxes temporels (A protège B qui tue A)
-- Rollback d'actions invalides
-
-### 🎯 **Sprint 1.3 : Messages et Communication** (1 semaine)
-**💻 Développeur :**
-- [ ] Système PM avec notification publique
-- [ ] Chat nocturne par faction
-- [ ] Système de testament (Last Will)
-- [ ] Notes de mort des tueurs
+- [x] Système multi-canaux (PUBLIC, MAFIA, DEAD, PRIVATE)
+- [x] Chat nocturne des mafia avec permissions
+- [x] Messages privés avec notification publique
+- [x] API REST complète pour tous les canaux
 
 **🎨 UX Designer :**
-- [ ] Interface PM intuitive
-- [ ] Chat nocturne sécurisé par faction
-- [ ] Éditeur de testament
-- [ ] Affichage des notes de mort
+- [x] Interface multi-onglets pour les canaux
+- [x] Switching temps réel selon rôle et phase
+- [x] Design spécifique par canal (mafia rouge, morts gris)
+- [x] Sélecteur de destinataire pour MP
+
+**✨ Animateur :**
+- [x] Animations spécifiques par canal
+- [x] Chat mafia avec effets rouges pulsants
+- [x] Chat morts avec effets spectraux
+- [x] Messages privés avec lueur violette
+
+**🐛 Bugs Potentiels :** ✅ **RÉSOLUS**
+- ✅ Permissions par rôle et phase
+- ✅ Synchronisation multi-canaux
+- ✅ Fallback compatibility ancien chat
+
+### 🎯 **Sprint 1.3 : Testament & Notes de Mort** (1 semaine) 🚧 **EN COURS**
+**💻 Développeur :**
+- [ ] Système de testament (Last Will) complet
+- [ ] Notes de mort des tueurs (Death Notes)
+- [ ] Révélation testament à la mort
+- [ ] Interface d'édition en jeu
+
+**🎨 UX Designer :**
+- [ ] Éditeur de testament moderne
+- [ ] Modal de révélation des testaments
+- [ ] Interface notes de mort pour tueurs
+- [ ] Affichage stylisé des dernières volontés
+
+**✨ Animateur :**
+- [ ] Animation révélation testament
+- [ ] Effets dramatiques notes de mort
+- [ ] Transitions d'édition fluides
+- [ ] Typographie immersive testaments
 
 ### 🎯 **Sprint 1.4 : Tests et Debug** (1 semaine)
 **👥 Toute l'équipe :**
@@ -354,8 +373,8 @@
 
 ## 🎯 **MÉTRIQUES DE SUCCÈS**
 - **Rôles implémentés** : 6/45+ (Target: 100%) - 🎯 Base solide
-- **Systèmes complets** : 1/8 ✅ Procès terminé (Phases, Chat, PM, Testament, etc.)
-- **Performance** : <100ms latence ✅, 60fps constant ✅
+- **Systèmes complets** : 2/8 ✅ Procès + Chat terminés (Phases, Chat, PM, Testament, etc.)
+- **Performance** : <100ms latence ✅, 60fps constant ✅, Chat temps réel ✅
 - **Bugs critiques** : 0 en production ✅
 
 ## ⏱️ **PLANNING GLOBAL**
@@ -383,6 +402,6 @@ Créer le **Mafia en ligne le plus complet et moderne**, surpassant même SC2 Ma
 
 ---
 
-*Dernière mise à jour : ✅ Sprint 1.1 Terminé - Système de Procès Complet*  
-*Prochaine étape : 🚀 Sprint 1.2 - Chat Nocturne & Communications*  
-*Status : 🟢 En avance sur planning - Équipe performante*
+*Dernière mise à jour : ✅ Sprint 1.2 Terminé - Chat Nocturne Multi-Canaux*  
+*Prochaine étape : 🚀 Sprint 1.3 - Testament & Notes de Mort*  
+*Status : 🟢 Excellent momentum - 2/8 systèmes terminés*
