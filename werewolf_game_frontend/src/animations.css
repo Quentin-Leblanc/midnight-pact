@@ -1128,3 +1128,178 @@ body {
     transform: scale(1.1);
   }
 }
+
+/* 🆕 ==================== ANIMATIONS DE PROCÈS ==================== */
+
+/* Overlay du procès avec effet dramatique */
+.trial-overlay {
+  animation: trialOverlayAppear 0.8s ease-out;
+  backdrop-filter: blur(8px) brightness(0.3);
+}
+
+@keyframes trialOverlayAppear {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px) brightness(1);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(8px) brightness(0.3);
+  }
+}
+
+/* Phase transitions spécifiques */
+.trial-phase {
+  background: linear-gradient(135deg, 
+    #451a03 0%,     /* amber-900 */
+    #7c2d12 25%,    /* red-900 */
+    #451a03 50%,    /* amber-900 */
+    #7c2d12 75%,    /* red-900 */
+    #451a03 100%    /* amber-900 */
+  );
+  background-size: 400% 400%;
+  animation: trialBackgroundShift 8s ease-in-out infinite;
+}
+
+@keyframes trialBackgroundShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.lynching-phase {
+  background: linear-gradient(135deg, 
+    #7f1d1d 0%,     /* red-900 */
+    #450a0a 50%,    /* red-950 */
+    #7f1d1d 100%    /* red-900 */
+  );
+  animation: lynchingPulse 2s ease-in-out infinite;
+}
+
+@keyframes lynchingPulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2);
+  }
+}
+
+/* Animation du spotlight sur l'accusé */
+.accused-spotlight {
+  position: relative;
+  animation: spotlightPulse 3s ease-in-out infinite;
+}
+
+.accused-spotlight::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%);
+  border-radius: inherit;
+  z-index: -1;
+}
+
+@keyframes spotlightPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(255,215,0,0.4);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 30px rgba(255,215,0,0.6);
+  }
+}
+
+/* Compteurs de votes animés */
+.vote-counter-innocent {
+  animation: counterGlow 2s ease-in-out infinite;
+}
+
+@keyframes counterGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+  }
+}
+
+.vote-counter-guilty {
+  animation: counterGlowRed 2s ease-in-out infinite;
+}
+
+@keyframes counterGlowRed {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  }
+}
+
+/* Animation de verdict */
+.verdict-reveal {
+  animation: verdictReveal 1.2s ease-out;
+}
+
+@keyframes verdictReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) rotateX(90deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotateX(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateX(0deg);
+  }
+}
+
+/* Animation d'exécution dramatique */
+.execution-animation {
+  animation: executionDrama 3s ease-in-out;
+}
+
+@keyframes executionDrama {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  30% {
+    transform: scale(1.05);
+    filter: brightness(1.3) contrast(1.2);
+  }
+  60% {
+    transform: scale(0.95);
+    filter: brightness(0.7) contrast(1.5);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(0.9);
+    filter: brightness(0.4) grayscale(100%);
+  }
+}
+
+/* Effet de tension pendant le procès */
+.trial-tension {
+  animation: tensionBuild 4s ease-in-out infinite;
+}
+
+@keyframes tensionBuild {
+  0%, 100% {
+    filter: brightness(1) contrast(1);
+  }
+  50% {
+    filter: brightness(1.1) contrast(1.1);
+  }
+}

@@ -170,6 +170,22 @@ const PHASE_INFO = {
     bgClass: 'voting-phase',
     duration: 60,
   },
+  trial: {
+    name: 'Procès',
+    description: 'Un suspect défend sa vie',
+    icon: Crown,
+    color: 'text-orange-200',
+    bgClass: 'trial-phase',
+    duration: 60,
+  },
+  lynching: {
+    name: 'Exécution',
+    description: 'Justice est rendue',
+    icon: Sword,
+    color: 'text-red-300',
+    bgClass: 'lynching-phase',
+    duration: 10,
+  },
   events: {
     name: 'Événements',
     description: 'Révélation des événements nocturnes',
@@ -318,6 +334,158 @@ const RoleGuide = () => {
   );
 };
 
+// 🆕 Panel de Procès
+const TrialPanel = ({ gameState, playerName, onTrialVote, trialInfo }) => {
+  const [hasVoted, setHasVoted] = useState(false);
+  const [verdict, setVerdict] = useState(null);
+
+  const accusedPlayer = gameState?.accused_player || trialInfo?.accused_player;
+  const isAccused = playerName === accusedPlayer;
+  const canVote = !isAccused && !hasVoted && gameState?.players?.find(p => p.name === playerName)?.alive;
+
+  const handleVote = async (selectedVerdict) => {
+    if (!canVote) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/${gameState.id}/trial-vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_name: playerName,
+          verdict: selectedVerdict
+        })
+      });
+
+      if (response.ok) {
+        setHasVoted(true);
+        setVerdict(selectedVerdict);
+        onTrialVote?.(selectedVerdict);
+      }
+    } catch (error) {
+      console.error('Erreur vote procès:', error);
+    }
+  };
+
+  // Calculer les votes
+  const votesCounts = Object.values(trialInfo?.trial_votes || {}).reduce((acc, vote) => {
+    acc[vote] = (acc[vote] || 0) + 1;
+    return acc;
+  }, {});
+
+  const guiltyVotes = votesCounts.GUILTY || 0;
+  const innocentVotes = votesCounts.INNOCENT || 0;
+  const totalVotes = guiltyVotes + innocentVotes;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 trial-overlay">
+      <Card className="w-full max-w-2xl mx-4 bg-gradient-to-br from-amber-900/90 to-red-900/90 border-amber-700/50 backdrop-blur-md">
+        <CardHeader className="text-center border-b border-amber-700/30">
+          <div className="flex items-center justify-center space-x-3 mb-2">
+            <Crown className="w-8 h-8 text-amber-400" />
+            <CardTitle className="text-2xl font-bold text-amber-100">
+              PROCÈS EN COURS
+            </CardTitle>
+            <Crown className="w-8 h-8 text-amber-400" />
+          </div>
+          <CardDescription className="text-amber-200 text-lg">
+            {accusedPlayer} est accusé(e) et doit défendre sa vie !
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="p-6">
+          {/* Accusé en spotlight */}
+          <div className="text-center mb-6 p-4 bg-amber-800/30 rounded-lg border border-amber-600/30">
+            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-red-600/80 rounded-full mb-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-300" />
+              <span className="text-white font-bold">ACCUSÉ(E)</span>
+            </div>
+            <h3 className="text-xl font-bold text-amber-100 mb-2">{accusedPlayer}</h3>
+            {isAccused ? (
+              <p className="text-amber-200 italic">
+                Votre vie est entre les mains du village. Défendez-vous !
+              </p>
+            ) : (
+              <p className="text-amber-200">
+                Écoutez sa défense et rendez votre verdict
+              </p>
+            )}
+          </div>
+
+          {/* Votes si pas l'accusé */}
+          {!isAccused && (
+            <div className="space-y-4">
+              <h4 className="text-amber-100 font-semibold text-center">
+                Votre Verdict :
+              </h4>
+              
+              {!hasVoted ? (
+                <div className="flex justify-center space-x-4">
+                  <Button
+                    onClick={() => handleVote('innocent')}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg font-bold"
+                    disabled={!canVote}
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    INNOCENT
+                  </Button>
+                  <Button
+                    onClick={() => handleVote('guilty')}
+                    className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 text-lg font-bold"
+                    disabled={!canVote}
+                  >
+                    <Crosshair className="w-5 h-5 mr-2" />
+                    COUPABLE
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full ${
+                    verdict === 'guilty' ? 'bg-red-600/80' : 'bg-green-600/80'
+                  }`}>
+                    {verdict === 'guilty' ? (
+                      <Crosshair className="w-5 h-5 text-white" />
+                    ) : (
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    )}
+                    <span className="text-white font-bold">
+                      Vous avez voté {verdict === 'guilty' ? 'COUPABLE' : 'INNOCENT'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Décompte des votes */}
+          <div className="mt-6 grid grid-cols-2 gap-4">
+            <div className="bg-green-900/30 border border-green-600/30 rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-green-400">{innocentVotes}</div>
+              <div className="text-green-300 text-sm">INNOCENT</div>
+            </div>
+            <div className="bg-red-900/30 border border-red-600/30 rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-red-400">{guiltyVotes}</div>
+              <div className="text-red-300 text-sm">COUPABLE</div>
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div className="mt-4 text-center text-amber-300 text-sm">
+            {isAccused ? (
+              "Vous ne pouvez pas voter à votre propre procès"
+            ) : canVote ? (
+              "Choisissez votre verdict - La majorité décide du sort de l'accusé(e)"
+            ) : hasVoted ? (
+              "Vote enregistré - En attente des autres joueurs"
+            ) : (
+              "Vous ne pouvez pas voter (mort ou déjà voté)"
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // Cimetière
 const Cemetery = ({ gameState }) => {
   const deadPlayers = gameState?.players?.filter((p) => !p.alive) || [];
@@ -408,6 +576,10 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
   const [showGameStartAnimation, setShowGameStartAnimation] = useState(false);
   const [showNightAnimation, setShowNightAnimation] = useState(false);
   const [showDayAnimation, setShowDayAnimation] = useState(false);
+  
+  // 🆕 États pour le système de procès
+  const [trialInfo, setTrialInfo] = useState(null);
+  const [showTrialPanel, setShowTrialPanel] = useState(false);
 
   useEffect(() => {
     fetchGameData();
@@ -428,10 +600,30 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
       } else if (gameState.phase === 'night') {
         setShowNightAnimation(true);
         setTimeout(() => setShowNightAnimation(false), 3000);
+      } else if (gameState.phase === 'trial') {
+        // 🆕 Ouvrir le panel de procès
+        setShowTrialPanel(true);
+        fetchTrialInfo();
+      } else if (gameState.phase === 'lynching') {
+        // 🆕 Fermer le panel de procès pendant l'exécution
+        setShowTrialPanel(false);
       }
     }
     setLastPhase(gameState?.phase);
   }, [gameState?.phase]);
+
+  // 🆕 Fonction pour récupérer les infos du procès
+  const fetchTrialInfo = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/${roomCode}/trial-info`);
+      if (response.ok) {
+        const data = await response.json();
+        setTrialInfo(data);
+      }
+    } catch (error) {
+      console.error('Erreur récupération info procès:', error);
+    }
+  };
 
   // Générer les couleurs des joueurs au début
   useEffect(() => {
@@ -690,6 +882,15 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
       console.error('Error casting vote:', err);
       setError(err.message);
     }
+  };
+
+  // 🆕 Gestion du vote de procès
+  const handleTrialVote = (verdict) => {
+    console.log('Vote procès:', verdict);
+    // Rafraîchir les infos du procès après vote
+    setTimeout(() => {
+      fetchTrialInfo();
+    }, 500);
   };
 
   const sendChatMessage = async () => {
@@ -1594,6 +1795,16 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
           </div>
         </div>
       </div>
+
+      {/* 🆕 Panel de Procès */}
+      {showTrialPanel && gameState?.phase === 'trial' && (
+        <TrialPanel
+          gameState={gameState}
+          playerName={playerName}
+          onTrialVote={handleTrialVote}
+          trialInfo={trialInfo}
+        />
+      )}
     </div>
   );
 }

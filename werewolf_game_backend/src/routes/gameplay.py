@@ -226,3 +226,53 @@ def save_last_will(room_code, player_name):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@gameplay_bp.route('/games/<room_code>/trial-vote', methods=['POST'])
+def cast_trial_vote(room_code):
+    """Cast a trial vote (innocent/guilty)"""
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        verdict = data.get('verdict')  # 'innocent' or 'guilty'
+        
+        # Convert string to enum
+        from src.game_engine import TrialVerdict
+        if verdict == 'guilty':
+            verdict_enum = TrialVerdict.GUILTY
+        elif verdict == 'innocent':
+            verdict_enum = TrialVerdict.INNOCENT
+        else:
+            return jsonify({'success': False, 'error': 'Invalid verdict'}), 400
+        
+        success, message = game_engine.cast_trial_vote(room_code, player_name, verdict_enum)
+        
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/trial-info', methods=['GET'])
+def get_trial_info(room_code):
+    """Get trial information"""
+    try:
+        state = game_engine.get_game_state(room_code)
+        
+        if state and state.get('phase') == 'trial':
+            from src.game_engine import game_engine as ge
+            game = ge.games.get(room_code)
+            if game:
+                return jsonify({
+                    'accused_player': game.get('accused_player'),
+                    'trial_defense_time': game.get('trial_defense_time', 30),
+                    'trial_voting_time': game.get('trial_voting_time', 30),
+                    'trial_votes': game.get('trial_votes', {}),
+                    'trial_history': game.get('trial_history', [])
+                })
+        
+        return jsonify({'error': 'No trial in progress'}), 404
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+

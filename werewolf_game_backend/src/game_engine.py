@@ -15,8 +15,20 @@ class Phase(Enum):
     NIGHT = "night"
     DAY = "day"
     VOTING = "voting"
+    TRIAL = "trial"          # 🆕 Phase de procès
+    LYNCHING = "lynching"    # 🆕 Phase d'exécution
     TRANSITION = "events"
     ENDED = "ended"
+
+class VoteType(Enum):
+    MAJORITY = "majority"                    # 51% pour lynch direct
+    MAJORITY_TRIAL = "majority_trial"        # 51% pour procès
+    BALLOT = "ballot"                        # Vote secret, plus de votes = lynch
+    BALLOT_TRIAL = "ballot_trial"            # Vote secret puis procès
+
+class TrialVerdict(Enum):
+    INNOCENT = "innocent"
+    GUILTY = "guilty"
 
 class GameEngine:
     def __init__(self):
@@ -36,12 +48,26 @@ class GameEngine:
             'day_count': 0,
             'night_actions': {},
             'votes': {},
+            'trial_votes': {},               # 🆕 Votes innocent/coupable
             'eliminated_players': [],
             'winner': None,
             'chat_messages': [],
             'last_elimination': None,
             'phase_history': [],
-            'game_history': []  # Historique détaillé des événements
+            'game_history': [],
+            
+            # 🆕 Système de procès
+            'vote_type': VoteType.MAJORITY_TRIAL,  # Type de vote par défaut
+            'accused_player': None,               # Joueur en procès
+            'trial_defense_time': 30,             # Temps de défense en secondes
+            'trial_voting_time': 30,              # Temps de vote innocent/coupable
+            'trial_pauses_day': True,             # Le procès pause le timer jour
+            'anonymous_ballot': False,            # Vote secret ou public
+            'lynch_threshold': 0.51,              # Seuil pour lynch (51%)
+            
+            # 🆕 Historique des procès
+            'trial_history': [],
+            'day_voting_enabled': True,           # Vote activé pendant la journée
         }
         return self.games[game_id]
     
@@ -355,8 +381,9 @@ class GameEngine:
                 print(f"DEBUG: Moving from night results to day phase for game {game_id}")
                 game['phase'] = Phase.DAY
                 game['phase_start_time'] = datetime.now()
-                game['phase_duration'] = 60  # 1 minute for day discussion + voting
+                game['phase_duration'] = 120  # 2 minutes for day discussion + voting
                 game['transition_type'] = None
+                game['day_voting_enabled'] = True  # 🆕 Réactiver les votes
                 
             elif game.get('transition_type') == 'day_results':
                 # Transition from day results to night
@@ -370,15 +397,31 @@ class GameEngine:
                 # Reset night actions and votes
                 game['night_actions'] = {}
                 game['votes'] = {}
+                game['trial_votes'] = {}  # 🆕 Reset trial votes
+                game['accused_player'] = None  # 🆕 Reset accused
                 for player in game['players'].values():
                     player['has_voted'] = False
                     player['vote_target'] = None
                     player['night_action_used'] = False
                     player['protected'] = False
+                    player['trial_vote'] = None  # 🆕 Reset trial vote
             
         elif game['phase'] == Phase.DAY:
-            # Process votes and eliminate player
-            eliminated = self._process_votes(game)
+            # 🆕 Vérifier si quelqu'un doit être mis en procès
+            accused = self._check_for_trial(game)
+            if accused:
+                return self._start_trial(game, accused)
+            else:
+                # Pas de procès, passage direct à la nuit
+                self._process_day_end(game)
+            
+        elif game['phase'] == Phase.TRIAL:
+            # 🆕 Traiter les votes du procès
+            return self._process_trial_votes(game)
+            
+        elif game['phase'] == Phase.LYNCHING:
+            # 🆕 Exécuter et passer à la transition
+            self._execute_accused(game)
             
             # Check for game end
             if self._check_game_end(game):
@@ -854,6 +897,248 @@ class GameEngine:
         else:
             # Fallback
             return f"{player_name} a été éliminé(e)."
+
+    # 🆕 ==================== SYSTÈME DE PROCÈS ====================
+    
+    def _check_for_trial(self, game):
+        """Vérifie si un joueur doit être mis en procès selon le type de vote"""
+        if not game['day_voting_enabled']:
+            return None
+            
+        alive_players = [p for p in game['players'].values() if p['alive']]
+        total_alive = len(alive_players)
+        
+        if total_alive == 0:
+            return None
+            
+        # Compter les votes pour chaque joueur
+        vote_counts = {}
+        for player_name, player in game['players'].items():
+            if player['alive'] and player.get('vote_target'):
+                target = player['vote_target']
+                vote_counts[target] = vote_counts.get(target, 0) + 1
+        
+        vote_type = game['vote_type']
+        threshold = int(total_alive * game['lynch_threshold'])
+        
+        if vote_type in [VoteType.MAJORITY, VoteType.MAJORITY_TRIAL]:
+            # Vote majoritaire : il faut 51%+ des votes
+            for player_name, votes in vote_counts.items():
+                if votes >= threshold:
+                    if vote_type == VoteType.MAJORITY:
+                        # Lynch direct sans procès
+                        return {'player': player_name, 'votes': votes, 'direct_lynch': True}
+                    else:
+                        # Procès requis
+                        return {'player': player_name, 'votes': votes, 'direct_lynch': False}
+                        
+        elif vote_type in [VoteType.BALLOT, VoteType.BALLOT_TRIAL]:
+            # Vote secret : celui avec le plus de votes
+            if vote_counts:
+                max_votes = max(vote_counts.values())
+                candidates = [name for name, votes in vote_counts.items() if votes == max_votes]
+                
+                if len(candidates) == 1:  # Pas d'égalité
+                    player_name = candidates[0]
+                    if vote_type == VoteType.BALLOT:
+                        # Lynch direct sans procès
+                        return {'player': player_name, 'votes': max_votes, 'direct_lynch': True}
+                    else:
+                        # Procès requis
+                        return {'player': player_name, 'votes': max_votes, 'direct_lynch': False}
+                        
+        return None
+        
+    def _start_trial(self, game, accusation_info):
+        """Démarre le procès ou lynch direct"""
+        player_name = accusation_info['player']
+        votes = accusation_info['votes']
+        direct_lynch = accusation_info['direct_lynch']
+        
+        if direct_lynch:
+            # Lynch direct sans procès
+            game['accused_player'] = player_name
+            return self._execute_accused(game, direct=True)
+        else:
+            # Procès avec défense et vote
+            game['phase'] = Phase.TRIAL
+            game['accused_player'] = player_name
+            game['phase_start_time'] = datetime.now()
+            game['phase_duration'] = game['trial_defense_time'] + game['trial_voting_time']
+            game['day_voting_enabled'] = False  # Désactiver votes jour
+            
+            # Reset trial votes
+            game['trial_votes'] = {}
+            for player in game['players'].values():
+                player['trial_vote'] = None
+                
+            # Ajouter à l'historique
+            game['trial_history'].append({
+                'accused': player_name,
+                'votes_to_trial': votes,
+                'day': game['day_count'],
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            game['game_history'].append({
+                'type': 'trial_start',
+                'phase': 'trial',
+                'day': game['day_count'],
+                'accused': player_name,
+                'votes': votes,
+                'description': f"{player_name} est mis en procès avec {votes} votes"
+            })
+            
+            return True, f"{player_name} est mis en procès ! Temps de défense puis vote innocent/coupable."
+            
+    def _process_trial_votes(self, game):
+        """Traite les votes innocent/coupable du procès"""
+        accused = game['accused_player']
+        if not accused:
+            return False, "Pas de joueur en procès"
+            
+        # Compter les votes innocent/coupable
+        guilty_votes = 0
+        innocent_votes = 0
+        total_voters = 0
+        
+        for player_name, player in game['players'].items():
+            if player['alive'] and player_name != accused:  # L'accusé ne vote pas
+                trial_vote = player.get('trial_vote')
+                if trial_vote == TrialVerdict.GUILTY:
+                    guilty_votes += 1
+                elif trial_vote == TrialVerdict.INNOCENT:
+                    innocent_votes += 1
+                total_voters += 1
+                
+        # Déterminer le verdict (majorité requise pour condamner)
+        required_for_guilty = total_voters // 2 + 1
+        
+        if guilty_votes >= required_for_guilty:
+            # Coupable - Exécution
+            game['phase'] = Phase.LYNCHING
+            game['phase_start_time'] = datetime.now()
+            game['phase_duration'] = 10  # 10 secondes pour montrer l'exécution
+            
+            verdict = "COUPABLE"
+        else:
+            # Innocent - Retour au jour ou fin de journée
+            verdict = "INNOCENT"
+            game['accused_player'] = None
+            
+            # Vérifier s'il reste du temps de jour
+            elapsed_day_time = (datetime.now() - game['phase_start_time']).total_seconds()
+            remaining_day_time = max(0, 120 - elapsed_day_time)  # 2min de jour par défaut
+            
+            if remaining_day_time > 30:  # S'il reste plus de 30 sec
+                # Retour au jour
+                game['phase'] = Phase.DAY
+                game['phase_duration'] = remaining_day_time
+                game['day_voting_enabled'] = True
+            else:
+                # Fin de journée directe
+                self._process_day_end(game)
+                
+        # Enregistrer le verdict
+        game['game_history'].append({
+            'type': 'trial_verdict',
+            'phase': 'trial',
+            'day': game['day_count'],
+            'accused': accused,
+            'verdict': verdict,
+            'guilty_votes': guilty_votes,
+            'innocent_votes': innocent_votes,
+            'description': f"{accused} jugé {verdict} ({guilty_votes} coupable, {innocent_votes} innocent)"
+        })
+        
+        return True, f"Verdict : {verdict} ({guilty_votes} coupable, {innocent_votes} innocent)"
+        
+    def _execute_accused(self, game, direct=False):
+        """Exécute le joueur accusé"""
+        accused = game['accused_player']
+        if not accused or accused not in game['players']:
+            return False, "Joueur accusé invalide"
+            
+        accused_player = game['players'][accused]
+        accused_role = accused_player['role']
+        
+        # Éliminer le joueur
+        accused_player['alive'] = False
+        
+        # Ajouter aux éliminés
+        eliminated_info = {
+            'name': accused,
+            'cause': 'lynch_direct' if direct else 'lynch_trial',
+            'day': game['day_count'],
+            'role': accused_role.value if hasattr(accused_role, 'value') else str(accused_role)
+        }
+        game['eliminated_players'].append(eliminated_info)
+        
+        # Générer histoire de mort
+        execution_story = self._generate_death_story(accused, 'voted_out', accused_role)
+        game['last_elimination'] = execution_story
+        
+        # Historique
+        game['game_history'].append({
+            'type': 'execution',
+            'phase': 'lynching' if not direct else 'day',
+            'day': game['day_count'],
+            'player': accused,
+            'cause': 'lynch_direct' if direct else 'lynch_trial',
+            'role': eliminated_info['role'],
+            'description': f"{accused} ({eliminated_info['role']}) a été exécuté par le village"
+        })
+        
+        # Reset accused
+        game['accused_player'] = None
+        
+        if direct:
+            # Lynch direct, aller aux résultats de jour
+            game['phase'] = Phase.TRANSITION
+            game['phase_start_time'] = datetime.now()
+            game['phase_duration'] = 15
+            game['transition_type'] = 'day_results'
+            
+        return True, f"{accused} a été exécuté par le village."
+        
+    def _process_day_end(self, game):
+        """Gère la fin de journée sans procès ni lynch"""
+        game['phase'] = Phase.TRANSITION
+        game['phase_start_time'] = datetime.now()
+        game['phase_duration'] = 15
+        game['transition_type'] = 'day_results'
+        game['last_elimination'] = "Aucune exécution aujourd'hui. Le village n'a pas pu se mettre d'accord."
+        
+    def cast_trial_vote(self, game_id, player_name, verdict):
+        """Vote innocent ou coupable pendant un procès"""
+        if game_id not in self.games:
+            return False, "Game not found"
+            
+        game = self.games[game_id]
+        
+        if game['phase'] != Phase.TRIAL:
+            return False, "Pas en phase de procès"
+            
+        if player_name not in game['players']:
+            return False, "Player not found"
+            
+        player = game['players'][player_name]
+        
+        if not player['alive']:
+            return False, "Les morts ne peuvent pas voter"
+            
+        if player_name == game['accused_player']:
+            return False, "L'accusé ne peut pas voter à son propre procès"
+            
+        if verdict not in [TrialVerdict.GUILTY, TrialVerdict.INNOCENT]:
+            return False, "Verdict invalide"
+            
+        # Enregistrer le vote
+        player['trial_vote'] = verdict
+        game['trial_votes'][player_name] = verdict
+        
+        verdict_fr = "COUPABLE" if verdict == TrialVerdict.GUILTY else "INNOCENT"
+        return True, f"Vous avez voté {verdict_fr}"
 
 # Global game engine instance
 game_engine = GameEngine() 
