@@ -22,6 +22,11 @@ class Role(Enum):
     SERIAL_KILLER = "serial_killer"  # Tueur indépendant
     JESTER = "jester"            # Veut être lynché pour gagner
     
+    # 🆕 PHASE 5 - RÔLES INVESTIGATIFS AVANCÉS
+    LOOKOUT = "lookout"          # Observe qui visite sa cible
+    SPY = "spy"                  # Écoute chat Mafia + voit visites
+    DETECTIVE = "detective"      # Investigation avec historique
+    
     # MAFIA ROLES (Faction Mafia)
     WEREWOLF = "werewolf"         # Legacy - sera remplacé par Mafioso
     GODFATHER = "godfather"       # Leader mafia, immunité investigation
@@ -229,9 +234,12 @@ class GameEngine:
         elif player_count <= 10:
             mafia_count = 3  # Godfather + Mafioso + 1 autre
             town_special = 4  # seer + witch + guard + sheriff/investigator
+        elif player_count <= 14:
+            mafia_count = 4  # Tous les rôles mafia
+            town_special = 7  # seer + witch + guard + hunter + sheriff + investigator + 1 avancé
         else:
             mafia_count = 4  # Tous les rôles mafia
-            town_special = 6  # seer + witch + guard + hunter + sheriff + investigator
+            town_special = 9  # seer + witch + guard + hunter + sheriff + investigator + 2 avancés + défensif
         
         roles_to_assign = []
         
@@ -281,6 +289,19 @@ class GameEngine:
             remaining_defensive = [r for r in [Role.BODYGUARD, Role.DOCTOR, Role.GUARD] if r not in roles_to_assign]
             if remaining_defensive:
                 roles_to_assign.append(random.choice(remaining_defensive))
+                
+        # 🆕 PHASE 5 - Rôles investigatifs avancés selon taille
+        if town_special >= 8:
+            # Ajouter un rôle investigatif avancé pour grandes parties
+            available_advanced = [Role.LOOKOUT, Role.SPY, Role.DETECTIVE]
+            advanced_role = random.choice(available_advanced)
+            roles_to_assign.append(advanced_role)
+            
+        if town_special >= 9:
+            # Ajouter un second rôle investigatif avancé pour très grandes parties
+            remaining_advanced = [r for r in [Role.LOOKOUT, Role.SPY, Role.DETECTIVE] if r not in roles_to_assign]
+            if remaining_advanced:
+                roles_to_assign.append(random.choice(remaining_advanced))
         
         # 🆕 PHASE 4 - Rôles neutres selon taille (remplacent certains Town)
         neutral_count = 0
@@ -343,6 +364,17 @@ class GameEngine:
                     game['players'][player_name]['bodyguard_vests'] = 1  # 1 gilet pare-balles
                 elif role == Role.DOCTOR:
                     game['players'][player_name]['doctor_heals'] = 999  # Soins illimités
+                
+                # 🆕 PHASE 5 - Configuration rôles investigatifs avancés
+                elif role == Role.LOOKOUT:
+                    game['players'][player_name]['lookout_watches'] = 999  # Observations illimitées
+                    game['players'][player_name]['lookout_results'] = []  # Historique observations
+                elif role == Role.SPY:
+                    game['players'][player_name]['spy_results'] = []  # Historique espionnage
+                    game['players'][player_name]['mafia_visits'] = []  # Visites Mafia observées
+                elif role == Role.DETECTIVE:
+                    game['players'][player_name]['detective_results'] = []  # Historique investigations
+                    game['players'][player_name]['detective_deductions'] = []  # Déductions
             
             print(f"DEBUG: Assigned {role.value} to {player_name}")
         
@@ -672,6 +704,41 @@ class GameEngine:
             player['sk_cautious'] = True
             return True, "Vous restez prudent cette nuit. Votre défense est renforcée mais vous n'attaquez pas."
         
+        # 🆕 PHASE 5 - ACTIONS INVESTIGATIVES AVANCÉES
+        elif player['role'] == Role.LOOKOUT and action == 'watch':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            if target and target in game['players'] and game['players'][target]['alive'] and target != player_name:
+                game['night_actions'][player_name]['lookout_watch'] = target
+                player['night_action_used'] = True
+                return True, f"Vous surveillez {target} cette nuit. Vous verrez qui lui rend visite."
+            else:
+                return False, "Cible invalide pour la surveillance (vous ne pouvez pas vous surveiller)"
+                
+        elif player['role'] == Role.SPY and action == 'spy':
+            # Spy observe automatiquement sans cible
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            game['night_actions'][player_name]['spy_watch'] = True
+            player['night_action_used'] = True
+            return True, "Vous espionnez cette nuit. Vous verrez toutes les visites Mafia et entendrez leur chat."
+            
+        elif player['role'] == Role.DETECTIVE and action == 'investigate':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            if target and target in game['players'] and game['players'][target]['alive'] and target != player_name:
+                success, message = self.perform_detective_investigation(game_id, player_name, target)
+                if success:
+                    player['night_action_used'] = True
+                return success, message
+            else:
+                return False, "Cible invalide pour l'investigation détective"
+        
         else:
             return False, "Invalid action for role"
     
@@ -848,6 +915,23 @@ class GameEngine:
                 sk_cautious.add(player_name)
                 # Défense renforcée en mode prudent
                 game['defense_levels'][player_name] = DefenseLevel.BASIC
+        
+        # 🆕 PHASE 5 - Traitement des actions investigatives avancées
+        lookout_watches = {}  # lookout_name -> target_watched
+        spy_results = []      # Résultats espionnage
+        
+        for player_name, actions in game['night_actions'].items():
+            player = game['players'][player_name]
+            
+            # Lookout watch
+            if 'lookout_watch' in actions:
+                target = actions['lookout_watch']
+                if target in game['players']:
+                    lookout_watches[player_name] = target
+                    
+            # Spy watch (automatique)
+            elif 'spy_watch' in actions:
+                spy_results.append(player_name)
         
         # 🆕 PHASE 1 - Coordination des kills Mafia
         mafia_target = None
@@ -1132,6 +1216,111 @@ class GameEngine:
                 # Retirer défense temporaire
                 if game['defense_levels'].get(player_name) == DefenseLevel.BASIC:
                     game['defense_levels'][player_name] = DefenseLevel.NONE
+        
+        # 🆕 PHASE 5 - Traitement des résultats investigatifs avancés
+        
+        # Traiter les observations Lookout
+        for lookout_name, watched_target in lookout_watches.items():
+            lookout_player = game['players'][lookout_name]
+            visitors = []
+            
+            # Chercher qui a visité la cible
+            for visitor_name, actions in game['night_actions'].items():
+                if visitor_name == lookout_name:
+                    continue  # Le Lookout ne se voit pas
+                    
+                # Vérifier toutes les actions qui ciblent watched_target
+                for action_type, target in actions.items():
+                    if target == watched_target:
+                        visitors.append(visitor_name)
+                        break
+            
+            # Créer le résultat d'observation
+            if visitors:
+                visitor_list = ", ".join(visitors)
+                observation_message = f"🔍 OBSERVATION: {visitor_list} a/ont visité {watched_target} cette nuit."
+            else:
+                observation_message = f"🔍 OBSERVATION: Personne n'a visité {watched_target} cette nuit."
+            
+            # Sauvegarder le résultat
+            if 'lookout_results' not in lookout_player:
+                lookout_player['lookout_results'] = []
+            
+            lookout_result = {
+                'watched': watched_target,
+                'visitors': visitors,
+                'message': observation_message,
+                'night': game['day_count'],
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            lookout_player['lookout_results'].append(lookout_result)
+            
+            # Ajouter aux résultats d'investigation
+            if lookout_name not in game['investigation_results']:
+                game['investigation_results'][lookout_name] = []
+            
+            game['investigation_results'][lookout_name].append({
+                'investigator': lookout_name,
+                'target': watched_target,
+                'result': visitor_list if visitors else "Aucun visiteur",
+                'result_message': observation_message,
+                'result_type': 'lookout',
+                'night': game['day_count'],
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        # Traiter les résultats Spy
+        for spy_name in spy_results:
+            spy_player = game['players'][spy_name]
+            
+            # Observer les visites Mafia
+            mafia_visits = []
+            if mafia_target and mafia_killer:
+                mafia_visits.append(f"{mafia_killer} a visité {mafia_target}")
+            
+            # Observer les actions Mafia (blackmail, etc.)
+            for player_name, actions in game['night_actions'].items():
+                player = game['players'][player_name]
+                if player['role'] in [Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]:
+                    for action_type, target in actions.items():
+                        if action_type == 'blackmail':
+                            mafia_visits.append(f"{player_name} a fait chanter {target}")
+                        elif action_type == 'consigliere' and target:
+                            mafia_visits.append(f"{player_name} a enquêté sur {target}")
+            
+            # Créer le message d'espionnage
+            if mafia_visits:
+                spy_message = f"🕵️ ESPIONNAGE: " + " | ".join(mafia_visits)
+            else:
+                spy_message = f"🕵️ ESPIONNAGE: Aucune activité Mafia détectée cette nuit."
+            
+            # Sauvegarder le résultat
+            if 'spy_results' not in spy_player:
+                spy_player['spy_results'] = []
+            
+            spy_result = {
+                'mafia_visits': mafia_visits,
+                'message': spy_message,
+                'night': game['day_count'],
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            spy_player['spy_results'].append(spy_result)
+            
+            # Ajouter aux résultats d'investigation
+            if spy_name not in game['investigation_results']:
+                game['investigation_results'][spy_name] = []
+            
+            game['investigation_results'][spy_name].append({
+                'investigator': spy_name,
+                'target': 'Mafia',
+                'result': str(len(mafia_visits)) + " activités",
+                'result_message': spy_message,
+                'result_type': 'spy',
+                'night': game['day_count'],
+                'timestamp': datetime.now().isoformat()
+            })
         
         # Combine all elimination stories
         if elimination_stories:
@@ -1590,6 +1779,33 @@ class GameEngine:
                 # Jester n'a pas d'actions nocturnes spéciales
                 # Son objectif est de se faire lyncher le jour
                 pass
+            
+            # 🆕 PHASE 5 - ACTIONS INVESTIGATIVES AVANCÉES
+            elif player['role'] == Role.LOOKOUT and not player.get('night_action_used', False):
+                # Lookout peut surveiller quelqu'un d'autre
+                if alive_others:
+                    actions.append({
+                        'type': 'watch',
+                        'description': 'Surveiller un joueur (voir qui lui rend visite)',
+                        'targets': alive_others
+                    })
+            
+            elif player['role'] == Role.SPY and not player.get('night_action_used', False):
+                # Spy espionne automatiquement
+                actions.append({
+                    'type': 'spy',
+                    'description': 'Espionner (voir visites Mafia + écouter leur chat)',
+                    'targets': []  # Pas de cible nécessaire
+                })
+            
+            elif player['role'] == Role.DETECTIVE and not player.get('night_action_used', False):
+                # Detective peut investiguer avec historique
+                if alive_others:
+                    actions.append({
+                        'type': 'investigate',
+                        'description': 'Investigation détective (historique + déductions)',
+                        'targets': alive_others
+                    })
         
         elif game['phase'] == Phase.DAY:
             # Check if we're in the voting period (last 40 seconds)
@@ -2483,6 +2699,11 @@ class GameEngine:
             Role.SERIAL_KILLER: InvestigationGroup.KILLERS,  # SK est un tueur
             Role.JESTER: InvestigationGroup.NEUTRALS,
             
+            # 🆕 PHASE 5 - Rôles Investigatifs Avancés
+            Role.LOOKOUT: InvestigationGroup.PROTECTORS,     # Lookout protège par observation
+            Role.SPY: InvestigationGroup.PROTECTORS,         # Spy protège par information
+            Role.DETECTIVE: InvestigationGroup.INVESTIGATORS, # Detective est investigatif
+            
             # 🆕 Mafia Roles - Tous dans le groupe MAFIA pour les cacher
             Role.WEREWOLF: InvestigationGroup.MAFIA,
             Role.GODFATHER: InvestigationGroup.MAFIA,
@@ -2709,6 +2930,90 @@ class GameEngine:
             Role.CONSIGLIERE: "Conseiller"
         }
         return role_names.get(role, role.value)
+    
+    # 🆕 PHASE 5 - INVESTIGATIONS AVANCÉES
+    def perform_detective_investigation(self, game_id, detective_name, target_name):
+        """Investigation Detective - révèle des informations avec historique et déductions"""
+        if game_id not in self.games:
+            return False, "Partie introuvable"
+        
+        game = self.games[game_id]
+        
+        # Vérifications
+        if detective_name not in game['players']:
+            return False, "Detective introuvable"
+        
+        if target_name not in game['players']:
+            return False, "Cible introuvable"
+        
+        detective = game['players'][detective_name]
+        target = game['players'][target_name]
+        
+        if detective['role'] != Role.DETECTIVE:
+            return False, "Seul le Detective peut utiliser cette investigation"
+        
+        if not detective['alive']:
+            return False, "Les morts ne peuvent pas enquêter"
+        
+        if not target['alive']:
+            return False, "Impossible d'enquêter sur les morts"
+        
+        if target_name == detective_name:
+            return False, "Vous ne pouvez pas enquêter sur vous-même"
+        
+        # Investigation Detective combine Sheriff + Investigator + historique
+        target_role = target['role']
+        
+        # Résultat Sheriff
+        sheriff_result = self._get_sheriff_result(Role.SHERIFF, target_role)
+        sheriff_text = "SUSPECT" if sheriff_result == SheriffResult.SUSPICIOUS else "NON SUSPECT"
+        
+        # Résultat Investigator  
+        investigator_group = self._get_investigator_group(target_role)
+        investigator_text = self._get_investigation_group_message(investigator_group)
+        
+        # Déduction basée sur l'historique
+        detective_results = detective.get('detective_results', [])
+        previous_investigations = len(detective_results)
+        
+        # Bonus d'information selon l'expérience
+        bonus_info = ""
+        if previous_investigations >= 2:
+            bonus_info = f" | Confiance élevée (Investigation #{previous_investigations + 1})"
+        elif previous_investigations >= 1:
+            bonus_info = f" | Confiance modérée (Investigation #{previous_investigations + 1})"
+        else:
+            bonus_info = " | Première investigation"
+        
+        # Message complet
+        full_message = f"🕵️ ANALYSE DETECTIVE de {target_name}:\n• Sheriff: {sheriff_text}\n• Profil: {investigator_text}\n• Statut: {bonus_info}"
+        
+        # Créer le résultat d'investigation
+        investigation_result = {
+            'investigator': detective_name,
+            'target': target_name,
+            'sheriff_result': sheriff_result.value,
+            'investigator_group': investigator_group.value,
+            'full_analysis': full_message,
+            'investigation_number': previous_investigations + 1,
+            'timestamp': datetime.now().isoformat(),
+            'night': game['day_count'],
+            'type': 'detective'
+        }
+        
+        # Sauvegarder le résultat
+        if 'detective_results' not in detective:
+            detective['detective_results'] = []
+        detective['detective_results'].append(investigation_result)
+        
+        if detective_name not in game['investigation_results']:
+            game['investigation_results'][detective_name] = []
+        game['investigation_results'][detective_name].append(investigation_result)
+        
+        # Ajouter à l'historique global
+        game['investigation_history'].append(investigation_result)
+        
+        return True, full_message
 
 # Global game engine instance
 game_engine = GameEngine() 

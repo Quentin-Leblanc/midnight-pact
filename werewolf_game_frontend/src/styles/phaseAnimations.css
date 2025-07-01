@@ -358,3 +358,104 @@
   0%, 100% { filter: hue-rotate(0deg) brightness(0.7); }
   50% { filter: hue-rotate(-20deg) brightness(0.5); }
 }
+
+/* ==================== ANIMATIONS RÔLES INVESTIGATIFS AVANCÉS ==================== */
+
+/* 🆕 PHASE 5 - Animation Lookout */
+.lookout-glow {
+  animation: lookoutObservation 3.2s ease-in-out infinite;
+}
+
+@keyframes lookoutObservation {
+  0%, 100% { 
+    transform: scale(1) rotateY(0deg); 
+    box-shadow: 0 0 15px rgba(8, 145, 178, 0.6);
+    filter: brightness(1);
+  }
+  25% { 
+    transform: scale(1.05) rotateY(-5deg); 
+    box-shadow: 0 0 25px rgba(8, 145, 178, 0.8);
+    filter: brightness(1.1);
+  }
+  50% { 
+    transform: scale(1.1) rotateY(0deg); 
+    box-shadow: 0 0 35px rgba(8, 145, 178, 1);
+    filter: brightness(1.2);
+  }
+  75% { 
+    transform: scale(1.05) rotateY(5deg); 
+    box-shadow: 0 0 25px rgba(8, 145, 178, 0.8);
+    filter: brightness(1.1);
+  }
+}
+
+/* 🆕 PHASE 5 - Animation Spy */
+.spy-glow {
+  animation: spyInfiltration 2.8s ease-in-out infinite;
+}
+
+@keyframes spyInfiltration {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    box-shadow: 0 0 12px rgba(20, 184, 166, 0.7);
+    opacity: 1;
+  }
+  20% { 
+    transform: scale(0.95) rotate(-2deg); 
+    box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
+    opacity: 0.8;
+  }
+  40% { 
+    transform: scale(1.08) rotate(1deg); 
+    box-shadow: 0 0 30px rgba(20, 184, 166, 0.9);
+    opacity: 1;
+  }
+  60% { 
+    transform: scale(0.98) rotate(-1deg); 
+    box-shadow: 0 0 18px rgba(20, 184, 166, 0.6);
+    opacity: 0.9;
+  }
+  80% { 
+    transform: scale(1.05) rotate(2deg); 
+    box-shadow: 0 0 25px rgba(20, 184, 166, 0.8);
+    opacity: 1;
+  }
+}
+
+/* 🆕 PHASE 5 - Animation Detective */
+.detective-glow {
+  animation: detectiveAnalysis 3.6s ease-in-out infinite;
+}
+
+@keyframes detectiveAnalysis {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.6);
+    filter: brightness(1) hue-rotate(0deg);
+  }
+  16% { 
+    transform: scale(1.03); 
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.7);
+    filter: brightness(1.05) hue-rotate(5deg);
+  }
+  33% { 
+    transform: scale(1.07); 
+    box-shadow: 0 0 28px rgba(245, 158, 11, 0.8);
+    filter: brightness(1.1) hue-rotate(10deg);
+  }
+  50% { 
+    transform: scale(1.12); 
+    box-shadow: 0 0 35px rgba(245, 158, 11, 1);
+    filter: brightness(1.2) hue-rotate(15deg);
+  }
+  66% { 
+    transform: scale(1.08); 
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.9);
+    filter: brightness(1.15) hue-rotate(10deg);
+  }
+  83% { 
+    transform: scale(1.04); 
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.7);
+    filter: brightness(1.08) hue-rotate(5deg);
+  }
+}

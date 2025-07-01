@@ -2,7 +2,8 @@ import React from 'react';
 import { 
   Eye, Shield, Zap, Crown, Skull, 
   Users, Search, Sword, Heart,
-  Crosshair, Laugh, Target
+  Crosshair, Laugh, Target, Binoculars, 
+  Radar, FileText
 } from 'lucide-react';
 
 const roleDescriptions = {
@@ -76,6 +77,29 @@ const roleDescriptions = {
     description: "Chaque nuit, vous pouvez soigner un joueur (pas vous-même) pour le protéger des attaques. Soins illimités.",
     icon: Heart,
     color: "text-pink-500",
+    faction: "Village"
+  },
+  
+  // 🆕 PHASE 5 - RÔLES INVESTIGATIFS AVANCÉS
+  lookout: {
+    name: "Lookout",
+    description: "Observateur expert qui surveille les allées et venues. Chaque nuit, vous pouvez observer un joueur et voir qui lui rend visite.",
+    icon: Binoculars,
+    color: "text-cyan-600",
+    faction: "Village"
+  },
+  spy: {
+    name: "Spy",
+    description: "Espion infiltré dans la Mafia. Chaque nuit, vous voyez toutes les visites de la Mafia et pouvez écouter leurs conversations secrètes.",
+    icon: Radar,
+    color: "text-teal-500",
+    faction: "Village"
+  },
+  detective: {
+    name: "Detective",
+    description: "Enquêteur expérimenté avec accès aux archives. Vos investigations révèlent à la fois le statut Sheriff ET le groupe Investigator, avec un historique détaillé.",
+    icon: FileText,
+    color: "text-amber-600",
     faction: "Village"
   },
   
