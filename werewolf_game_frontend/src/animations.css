@@ -1,0 +1,1130 @@
+/* Enhanced Werewolf Game Animations */
+
+/* Protection globale contre les débordements */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* Global Animation Variables */
+:root {
+  --night-color: #1a1a2e;
+  --day-color: #ffd700;
+  --blood-color: #8b0000;
+  --magic-color: #9932cc;
+  --forest-color: #228b22;
+  --moon-color: #f0f8ff;
+  --shadow-color: rgba(0, 0, 0, 0.8);
+}
+
+/* Background Animations */
+@keyframes nightSky {
+  0% {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, #16213e 0%, #1a1a2e 50%, #16213e 100%);
+  }
+  100% {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  }
+}
+
+@keyframes dayBreak {
+  0% {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  }
+  25% {
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffd700 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, #87ceeb 0%, #98d8e8 50%, #b0e0e6 100%);
+  }
+  75% {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #fff8dc 100%);
+  }
+  100% {
+    background: linear-gradient(135deg, #87ceeb 0%, #98d8e8 50%, #b0e0e6 100%);
+  }
+}
+
+@keyframes votingTension {
+  0% {
+    background: linear-gradient(135deg, #8b0000 0%, #dc143c 50%, #ff4500 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, #dc143c 0%, #8b0000 50%, #dc143c 100%);
+  }
+  100% {
+    background: linear-gradient(135deg, #8b0000 0%, #dc143c 50%, #ff4500 100%);
+  }
+}
+
+/* Phase-specific backgrounds */
+.night-phase {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+  transition: background 2s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.day-phase {
+  animation: dayBreak 10s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.voting-phase {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #b91c1c 100%);
+  transition: background 2s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Floating particles */
+.particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  animation: float 15s infinite linear;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(100vh) translateX(0px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100px) translateX(100px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Moon animation for night phase */
+.moon {
+  position: absolute;
+  top: 10%;
+  right: 10%;
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle at 30% 30%, #f0f8ff, #e6e6fa);
+  border-radius: 50%;
+  box-shadow: 0 0 30px rgba(240, 248, 255, 0.5);
+  animation: moonGlow 4s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes moonGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 30px rgba(240, 248, 255, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(240, 248, 255, 0.8);
+    transform: scale(1.1);
+  }
+}
+
+/* Sun animation for day phase */
+.sun {
+  position: absolute;
+  top: 15%;
+  right: 15%;
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle, #ffd700, #ffed4e);
+  border-radius: 50%;
+  box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
+  animation: sunRotate 20s linear infinite;
+  z-index: 2;
+}
+
+@keyframes sunRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.sun::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  background: conic-gradient(
+    transparent 0deg,
+    rgba(255, 215, 0, 0.3) 45deg,
+    transparent 90deg,
+    rgba(255, 215, 0, 0.3) 135deg,
+    transparent 180deg,
+    rgba(255, 215, 0, 0.3) 225deg,
+    transparent 270deg,
+    rgba(255, 215, 0, 0.3) 315deg,
+    transparent 360deg
+  );
+  border-radius: 50%;
+  animation: sunRays 8s linear infinite;
+}
+
+@keyframes sunRays {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Card animations */
+.card-enter {
+  animation: cardSlideIn 0.5s ease-out;
+}
+
+@keyframes cardSlideIn {
+  0% {
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Role-specific animations */
+.werewolf-glow {
+  animation: werewolfPulse 2s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+}
+
+@keyframes werewolfPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+    border-color: rgba(139, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(139, 0, 0, 0.8);
+    border-color: rgba(139, 0, 0, 0.6);
+  }
+}
+
+.seer-glow {
+  animation: seerShimmer 3s ease-in-out infinite;
+  box-shadow: 0 0 15px rgba(153, 50, 204, 0.4);
+}
+
+@keyframes seerShimmer {
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(153, 50, 204, 0.4);
+    border-color: rgba(153, 50, 204, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(153, 50, 204, 0.7);
+    border-color: rgba(153, 50, 204, 0.5);
+  }
+}
+
+.witch-glow {
+  animation: witchSparkle 2.5s ease-in-out infinite;
+  box-shadow: 0 0 18px rgba(34, 139, 34, 0.4);
+}
+
+@keyframes witchSparkle {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(34, 139, 34, 0.4);
+    border-color: rgba(34, 139, 34, 0.3);
+  }
+  33% {
+    box-shadow: 0 0 25px rgba(34, 139, 34, 0.6);
+    border-color: rgba(34, 139, 34, 0.4);
+  }
+  66% {
+    box-shadow: 0 0 22px rgba(153, 50, 204, 0.5);
+    border-color: rgba(153, 50, 204, 0.4);
+  }
+}
+
+.guard-glow {
+  animation: guardShield 2s ease-in-out infinite;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.4);
+}
+
+@keyframes guardShield {
+  0%,
+  100% {
+    box-shadow: 0 0 16px rgba(255, 215, 0, 0.4);
+    border-color: rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(255, 215, 0, 0.6);
+    border-color: rgba(255, 215, 0, 0.5);
+  }
+}
+
+/* Timer animations */
+.timer-critical {
+  animation: timerPulse 0.8s ease-in-out infinite;
+  color: #ef4444 !important;
+  text-shadow: 0 0 10px #ef4444;
+}
+
+@keyframes timerPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+  }
+}
+
+.progress-bar-animated {
+  position: relative;
+  overflow: hidden;
+  transition: all 1s ease-out;
+}
+
+.progress-bar-animated::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Barre de progression fluide */
+.progress-smooth {
+  transition: width 1s ease-out;
+}
+
+/* Améliorations du progress component */
+.progress {
+  transition: all 1s ease-out;
+}
+
+.progress > div {
+  transition: width 1s ease-out !important;
+}
+
+/* Action button animations */
+.action-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.action-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.5s ease;
+}
+
+.action-button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.action-button:active {
+  transform: scale(0.95);
+}
+
+/* Elimination animation */
+.player-eliminated {
+  animation: eliminationFade 2s ease-out forwards;
+}
+
+@keyframes eliminationFade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: grayscale(0%);
+  }
+  50% {
+    transform: scale(1.1);
+    filter: grayscale(50%) sepia(100%) hue-rotate(0deg) saturate(200%);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(0.9);
+    filter: grayscale(100%);
+  }
+}
+
+/* Chat message animations */
+.chat-message-enter {
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+@keyframes messageSlideIn {
+  0% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Phase transition overlay */
+.phase-transition {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: phaseIn 0.5s ease-out;
+}
+
+.phase-transition-text {
+  text-align: center;
+  font-size: 3rem;
+  font-weight: bold;
+  animation: textGlow 2s ease-in-out;
+}
+
+@keyframes phaseIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes textGlow {
+  0%,
+  100% {
+    text-shadow: 0 0 20px currentColor;
+  }
+  50% {
+    text-shadow: 0 0 40px currentColor, 0 0 60px currentColor;
+  }
+}
+
+/* Voting animation */
+.vote-cast {
+  animation: votePulse 0.5s ease-out;
+}
+
+@keyframes votePulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Role reveal animation */
+.role-reveal {
+  animation: roleRevealGlow 2s ease-out;
+}
+
+@keyframes roleRevealGlow {
+  0% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    transform: scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .moon,
+  .sun {
+    width: 50px;
+    height: 50px;
+    top: 5%;
+    right: 5%;
+  }
+
+  .phase-transition-text {
+    font-size: 2rem;
+  }
+
+  .particle {
+    width: 2px;
+    height: 2px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Day phase - blue background instead of blinking */
+.day-phase-blue {
+  background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #1d4ed8 100%);
+  transition: background 2s ease-in-out;
+  animation: dayGlow 3s ease-in-out infinite alternate;
+  position: relative;
+  overflow: hidden; /* Empêche le débordement */
+}
+
+@keyframes dayGlow {
+  0% {
+    filter: brightness(1) hue-rotate(0deg);
+  }
+  100% {
+    filter: brightness(1.1) hue-rotate(10deg);
+  }
+}
+
+/* Events phase with smooth transition - couleur du jour avec légère différence */
+.events-phase {
+  background: linear-gradient(
+    135deg,
+    #1e40af 0%,
+    #3b82f6 30%,
+    #60a5fa 70%,
+    #93c5fd 100%
+  );
+  transition: all 4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Particules flottantes pour toutes les phases */
+.events-phase::before,
+.day-phase-blue::before,
+.night-phase::before,
+.voting-phase::before {
+  content: '';
+  position: fixed; /* Changé de absolute à fixed */
+  top: 0;
+  left: 0;
+  width: 100vw; /* Utilise viewport width */
+  height: 100vh; /* Utilise viewport height */
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden; /* Empêche le débordement */
+  background-image: radial-gradient(
+      2px 2px at 20px 30px,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    ),
+    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(
+      1px 1px at 130px 80px,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    ),
+    radial-gradient(
+      2px 2px at 160px 30px,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+  background-repeat: repeat;
+  background-size: 200px 100px;
+  animation: sparkleFloat 15s linear infinite;
+}
+
+@keyframes sparkleFloat {
+  0% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20px) translateX(30px);
+    opacity: 0;
+  }
+}
+
+/* Particules spéciales pour la phase d'événements */
+.events-phase::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  background-image: radial-gradient(
+      3px 3px at 25px 25px,
+      rgba(147, 197, 253, 0.6),
+      transparent
+    ),
+    radial-gradient(2px 2px at 75px 50px, rgba(96, 165, 250, 0.4), transparent),
+    radial-gradient(
+      1px 1px at 125px 75px,
+      rgba(147, 197, 253, 0.8),
+      transparent
+    ),
+    radial-gradient(2px 2px at 175px 25px, rgba(59, 130, 246, 0.5), transparent);
+  background-repeat: repeat;
+  background-size: 200px 100px;
+  animation: eventsSparkles 8s linear infinite;
+}
+
+@keyframes eventsSparkles {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-30px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+/* Particules spéciales pour la nuit (étoiles) */
+.night-phase::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  background-image: radial-gradient(
+      1px 1px at 30px 40px,
+      rgba(240, 248, 255, 0.8),
+      transparent
+    ),
+    radial-gradient(2px 2px at 80px 20px, rgba(240, 248, 255, 0.6), transparent),
+    radial-gradient(
+      1px 1px at 150px 60px,
+      rgba(240, 248, 255, 0.9),
+      transparent
+    ),
+    radial-gradient(
+      1px 1px at 200px 30px,
+      rgba(240, 248, 255, 0.7),
+      transparent
+    );
+  background-repeat: repeat;
+  background-size: 250px 120px;
+  animation: starsTwinkle 12s ease-in-out infinite;
+}
+
+@keyframes starsTwinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Smooth transition from any phase to events */
+.night-phase.transitioning-to-events,
+.day-phase-blue.transitioning-to-events,
+.voting-phase.transitioning-to-events {
+  transition: background 4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Smooth transition from events to any phase */
+.events-phase.transitioning-from-events {
+  transition: background 4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Chat floating styles améliorés */
+.floating-chat {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  width: 32rem; /* Largeur beaucoup agrandie pour plus d'espace */
+  height: 24rem;
+  z-index: 50;
+  transition: all 0.3s ease;
+}
+
+.floating-chat.disabled {
+  filter: grayscale(0.3);
+  opacity: 0.8;
+}
+
+/* Effet de transparence pour le chat */
+.floating-chat-transparent {
+  opacity: 0.6;
+  backdrop-filter: blur(5px);
+  transition: opacity 0.3s ease;
+}
+
+.floating-chat-transparent:hover {
+  opacity: 1;
+  backdrop-filter: blur(10px);
+}
+
+/* Animations pour les boutons de vote */
+.vote-button {
+  transition: all 0.3s ease;
+  transform: scale(1);
+}
+
+.vote-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.vote-button.voted {
+  background-color: #6b7280 !important;
+  cursor: not-allowed;
+  transform: scale(0.95);
+}
+
+/* Animations pour les boutons d'action sélectionnés */
+.action-button {
+  transition: all 0.3s ease;
+  transform: scale(1);
+  position: relative;
+}
+
+.action-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Bouton sélectionné avec style vert et effet de pulsation */
+.action-button.selected {
+  background: linear-gradient(135deg, #059669, #10b981) !important;
+  border: 2px solid #34d399 !important;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.4);
+  animation: selectedPulse 2s infinite;
+}
+
+@keyframes selectedPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(52, 211, 153, 0.7);
+  }
+}
+
+/* Badge de vote avec animation */
+.vote-badge {
+  animation: voteCountPulse 0.5s ease-in-out;
+}
+
+@keyframes voteCountPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Amélioration des messages d'événements */
+.event-message {
+  animation: eventSlideIn 0.5s ease-out;
+}
+
+@keyframes eventSlideIn {
+  0% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Layout improvements */
+.game-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 1.5rem;
+  min-height: calc(100vh - 12rem);
+}
+
+@media (max-width: 1024px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Cemetery animation */
+.cemetery-item {
+  animation: fadeInGhost 0.5s ease-in-out;
+}
+
+@keyframes fadeInGhost {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Phase indicators */
+.phase-night .floating-chat {
+  border-color: #6366f1;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+.phase-day .floating-chat {
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+/* Disabled chat state */
+.chat-disabled {
+  background: linear-gradient(
+    135deg,
+    rgba(51, 65, 85, 0.7),
+    rgba(30, 41, 59, 0.7)
+  );
+  backdrop-filter: blur(10px);
+}
+
+.chat-disabled .chat-input {
+  background-color: rgba(51, 65, 85, 0.3);
+  cursor: not-allowed;
+}
+
+/* Better grid layout for game content */
+.content-grid-3col {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(600px, 2fr) minmax(
+      280px,
+      1fr
+    );
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1200px) {
+  .content-grid-3col {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Central column emphasis */
+.central-column {
+  min-height: 600px;
+}
+
+.central-column .timer-display {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.8),
+    rgba(51, 65, 85, 0.8)
+  );
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 2rem;
+  border-radius: 1rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.events-section {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.8),
+    rgba(51, 65, 85, 0.8)
+  );
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Improved phase display */
+.phase-display {
+  font-size: 4rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.5rem;
+}
+
+.phase-name {
+  font-size: 1.5rem;
+  color: #cbd5e1;
+  margin-bottom: 0.25rem;
+}
+
+.day-counter {
+  font-size: 1rem;
+  color: #94a3b8;
+}
+
+/* Role guide and cemetery styles */
+.role-guide-item:hover {
+  background-color: rgba(51, 65, 85, 0.5);
+  transform: translateX(4px);
+  transition: all 0.2s ease;
+}
+
+.cemetery-item {
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.cemetery-item:hover {
+  opacity: 1;
+}
+
+/* Phase-specific transition effects */
+.phase-transition.night-phase {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 27, 75, 0.95),
+    rgba(0, 0, 0, 0.9)
+  );
+}
+
+.phase-transition.day-phase-blue {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.3),
+    rgba(30, 58, 138, 0.8)
+  );
+}
+
+.phase-transition.voting-phase {
+  background: linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.3),
+    rgba(127, 29, 29, 0.8)
+  );
+}
+
+.phase-transition.events-phase {
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.3),
+    rgba(88, 28, 135, 0.8)
+  );
+}
+
+/* Enhanced phase transition text effects */
+.phase-transition-text.text-blue-200 {
+  color: #bfdbfe;
+  text-shadow: 0 0 30px #3b82f6, 0 0 60px #1d4ed8;
+}
+
+.phase-transition-text.text-yellow-200 {
+  color: #fef3c7;
+  text-shadow: 0 0 30px #f59e0b, 0 0 60px #d97706;
+}
+
+.phase-transition-text.text-red-200 {
+  color: #fecaca;
+  text-shadow: 0 0 30px #ef4444, 0 0 60px #dc2626;
+}
+
+.phase-transition-text.text-purple-200 {
+  color: #e9d5ff;
+  text-shadow: 0 0 30px #8b5cf6, 0 0 60px #7c3aed;
+}
+
+/* Remove any flickering animations */
+.day-glow {
+  animation: none !important;
+}
+
+/* ===== TRANSITIONS VOTES ===== */
+.vote-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+.vote-transition:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== ANIMATIONS NOUVELLES ===== */
+.countdown-number {
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+  animation: countdownScale 1s ease-in-out;
+}
+
+@keyframes countdownScale {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.game-start-fade {
+  animation: gameStartFade 3s ease-in-out;
+}
+
+@keyframes gameStartFade {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.night-animation {
+  animation: nightFade 3s ease-in-out;
+}
+
+@keyframes nightFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+.day-animation {
+  animation: dayFade 3s ease-in-out;
+}
+
+@keyframes dayFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
