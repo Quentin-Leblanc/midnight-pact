@@ -1565,3 +1565,517 @@ body {
     transform: scale(1);
   }
 }
+
+/* 🆕 ==================== ANIMATIONS TESTAMENT & NOTES DE MORT ==================== */
+
+/* Animation d'ouverture du testament */
+.last-will-editor {
+  transition: all 0.4s ease-in-out;
+}
+
+.last-will-editor .will-textarea {
+  background: linear-gradient(135deg, 
+    rgba(251, 191, 36, 0.1) 0%,
+    rgba(245, 158, 11, 0.05) 100%
+  );
+  transition: all 0.3s ease;
+  font-family: 'Georgia', serif;
+}
+
+.last-will-editor .will-textarea:focus {
+  background: linear-gradient(135deg, 
+    rgba(251, 191, 36, 0.15) 0%,
+    rgba(245, 158, 11, 0.1) 100%
+  );
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  animation: willFocus 0.3s ease-out;
+}
+
+@keyframes willFocus {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* Animation de sauvegarde du testament */
+.will-save-success {
+  animation: willSaveSuccess 1s ease-out;
+}
+
+@keyframes willSaveSuccess {
+  0% {
+    transform: scale(1);
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+  50% {
+    transform: scale(1.02);
+    background-color: rgba(34, 197, 94, 0.2);
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+  }
+  100% {
+    transform: scale(1);
+    background-color: rgba(34, 197, 94, 0.05);
+    box-shadow: none;
+  }
+}
+
+/* Révélation de testament dramatique */
+.will-reveal-message {
+  animation: willReveal 1.5s ease-out;
+  background: linear-gradient(135deg, 
+    rgba(245, 158, 11, 0.9) 0%,
+    rgba(217, 119, 6, 0.8) 100%
+  );
+  border: 2px solid rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+}
+
+@keyframes willReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) rotateX(-90deg);
+    box-shadow: 0 0 0px rgba(245, 158, 11, 0);
+  }
+  30% {
+    opacity: 0.7;
+    transform: scale(1.05) rotateX(-45deg);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) rotateX(0deg);
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateX(0deg);
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+  }
+}
+
+/* Effet de parchemin ancien pour le testament */
+.will-content {
+  position: relative;
+  background: linear-gradient(135deg, 
+    rgba(254, 243, 199, 0.9) 0%,
+    rgba(253, 230, 138, 0.7) 100%
+  );
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  box-shadow: inset 0 0 10px rgba(217, 119, 6, 0.1);
+}
+
+.will-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 24px,
+    rgba(217, 119, 6, 0.1) 25px
+  );
+  pointer-events: none;
+}
+
+.will-content:hover {
+  animation: parchmentGlow 2s ease-in-out infinite;
+}
+
+@keyframes parchmentGlow {
+  0%, 100% {
+    box-shadow: inset 0 0 10px rgba(217, 119, 6, 0.1);
+  }
+  50% {
+    box-shadow: inset 0 0 20px rgba(217, 119, 6, 0.2);
+  }
+}
+
+/* ==================== ANIMATIONS NOTES DE MORT ==================== */
+
+/* Animation d'ouverture de l'éditeur de notes de mort */
+.death-note-editor {
+  transition: all 0.4s ease-in-out;
+}
+
+.death-note-editor .death-note-textarea {
+  background: linear-gradient(135deg, 
+    rgba(127, 29, 29, 0.15) 0%,
+    rgba(185, 28, 28, 0.1) 100%
+  );
+  transition: all 0.3s ease;
+  font-family: 'Courier New', monospace;
+  color: #7f1d1d;
+}
+
+.death-note-editor .death-note-textarea:focus {
+  background: linear-gradient(135deg, 
+    rgba(127, 29, 29, 0.2) 0%,
+    rgba(185, 28, 28, 0.15) 100%
+  );
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+  animation: deathNoteFocus 0.4s ease-out;
+}
+
+@keyframes deathNoteFocus {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.2);
+  }
+  30% {
+    transform: scale(1.01);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Animation sinistre de préparation de note */
+.death-note-prepare {
+  animation: deathNotePrepare 1.2s ease-out;
+}
+
+@keyframes deathNotePrepare {
+  0% {
+    transform: scale(1);
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+  25% {
+    transform: scale(1.02);
+    background-color: rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    transform: scale(0.98);
+    background-color: rgba(127, 29, 29, 0.3);
+    box-shadow: 0 0 30px rgba(127, 29, 29, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    background-color: rgba(239, 68, 68, 0.05);
+    box-shadow: none;
+  }
+}
+
+/* Révélation dramatique de note de mort */
+.death-note-reveal-message {
+  animation: deathNoteReveal 2s ease-out;
+  background: linear-gradient(135deg, 
+    rgba(127, 29, 29, 0.9) 0%,
+    rgba(185, 28, 28, 0.8) 50%,
+    rgba(127, 29, 29, 0.9) 100%
+  );
+  border: 2px solid rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
+  color: #fef2f2;
+}
+
+@keyframes deathNoteReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) rotateY(-180deg);
+    box-shadow: 0 0 0px rgba(239, 68, 68, 0);
+    filter: blur(5px);
+  }
+  20% {
+    opacity: 0.3;
+    transform: scale(0.9) rotateY(-90deg);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+    filter: blur(3px);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05) rotateY(-30deg);
+    box-shadow: 0 0 35px rgba(239, 68, 68, 0.6);
+    filter: blur(1px);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1.02) rotateY(0deg);
+    box-shadow: 0 0 50px rgba(239, 68, 68, 0.7);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotateY(0deg);
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
+    filter: blur(0);
+  }
+}
+
+/* Effet de papier taché de sang pour les notes de mort */
+.death-note-content {
+  position: relative;
+  background: linear-gradient(135deg, 
+    rgba(254, 242, 242, 0.9) 0%,
+    rgba(254, 226, 226, 0.8) 30%,
+    rgba(252, 165, 165, 0.6) 70%,
+    rgba(248, 113, 113, 0.4) 100%
+  );
+  border: 1px solid rgba(185, 28, 28, 0.4);
+  box-shadow: inset 0 0 15px rgba(185, 28, 28, 0.2);
+}
+
+.death-note-content::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  right: 15%;
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle, rgba(185, 28, 28, 0.6) 0%, transparent 70%);
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.death-note-content::after {
+  content: '';
+  position: absolute;
+  bottom: 20%;
+  left: 10%;
+  width: 15px;
+  height: 15px;
+  background: radial-gradient(circle, rgba(127, 29, 29, 0.8) 0%, transparent 60%);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.death-note-content:hover {
+  animation: bloodStainPulse 3s ease-in-out infinite;
+}
+
+@keyframes bloodStainPulse {
+  0%, 100% {
+    box-shadow: inset 0 0 15px rgba(185, 28, 28, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 25px rgba(185, 28, 28, 0.4);
+  }
+}
+
+/* Animation de sélection de cible */
+.target-selection select:focus {
+  animation: targetLock 0.5s ease-out;
+}
+
+@keyframes targetLock {
+  0% {
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 0px rgba(239, 68, 68, 0);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.7);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+  }
+  100% {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  }
+}
+
+/* Animation d'écriture sinistre */
+.death-note-typing {
+  animation: sinisterTyping 0.3s ease-out;
+}
+
+@keyframes sinisterTyping {
+  0% {
+    color: #7f1d1d;
+  }
+  50% {
+    color: #b91c1c;
+    text-shadow: 0 0 3px rgba(185, 28, 28, 0.5);
+  }
+  100% {
+    color: #7f1d1d;
+    text-shadow: none;
+  }
+}
+
+/* Messages système avec animations spéciales */
+.system-message.is-will-reveal {
+  animation: willSystemReveal 1s ease-out;
+  background: linear-gradient(90deg, 
+    rgba(245, 158, 11, 0.2) 0%,
+    rgba(245, 158, 11, 0.1) 50%,
+    rgba(245, 158, 11, 0.2) 100%
+  );
+  border-left: 4px solid #f59e0b;
+}
+
+@keyframes willSystemReveal {
+  0% {
+    transform: translateX(-30px);
+    opacity: 0;
+    background-color: rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    background-color: rgba(245, 158, 11, 0.3);
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+    background-color: rgba(245, 158, 11, 0.2);
+  }
+}
+
+.system-message.is-death-note {
+  animation: deathNoteSystemReveal 1.2s ease-out;
+  background: linear-gradient(90deg, 
+    rgba(239, 68, 68, 0.2) 0%,
+    rgba(239, 68, 68, 0.1) 50%,
+    rgba(239, 68, 68, 0.2) 100%
+  );
+  border-left: 4px solid #ef4444;
+}
+
+@keyframes deathNoteSystemReveal {
+  0% {
+    transform: translateX(-40px) scale(0.95);
+    opacity: 0;
+    background-color: rgba(239, 68, 68, 0.5);
+    filter: blur(2px);
+  }
+  30% {
+    background-color: rgba(239, 68, 68, 0.4);
+    filter: blur(1px);
+  }
+  70% {
+    background-color: rgba(239, 68, 68, 0.3);
+    filter: blur(0);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    background-color: rgba(239, 68, 68, 0.2);
+    filter: blur(0);
+  }
+}
+
+/* Effets de hover pour les boutons d'action */
+.will-save-button:hover {
+  animation: willButtonHover 0.3s ease-out;
+}
+
+@keyframes willButtonHover {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.death-note-button:hover {
+  animation: deathNoteButtonHover 0.3s ease-out;
+}
+
+@keyframes deathNoteButtonHover {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Animation de compte de caractères */
+.character-count.near-limit {
+  animation: characterWarning 2s ease-in-out infinite;
+  color: #f59e0b;
+}
+
+.character-count.at-limit {
+  animation: characterDanger 1s ease-in-out infinite;
+  color: #ef4444;
+}
+
+@keyframes characterWarning {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes characterDanger {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Responsivité pour mobile */
+@media (max-width: 768px) {
+  .last-will-editor .will-textarea,
+  .death-note-editor .death-note-textarea {
+    font-size: 14px;
+  }
+  
+  .will-reveal-message,
+  .death-note-reveal-message {
+    padding: 8px;
+    font-size: 12px;
+  }
+  
+  @keyframes willReveal {
+    0% {
+      opacity: 0;
+      transform: scale(0.95) rotateX(-45deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotateX(0deg);
+    }
+  }
+  
+  @keyframes deathNoteReveal {
+    0% {
+      opacity: 0;
+      transform: scale(0.95) rotateY(-90deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotateY(0deg);
+    }
+  }
+}
+
+/* Mode sombre spécifique */
+@media (prefers-color-scheme: dark) {
+  .will-content {
+    background: linear-gradient(135deg, 
+      rgba(217, 119, 6, 0.15) 0%,
+      rgba(180, 83, 9, 0.1) 100%
+    );
+  }
+  
+  .death-note-content {
+    background: linear-gradient(135deg, 
+      rgba(127, 29, 29, 0.2) 0%,
+      rgba(185, 28, 28, 0.15) 100%
+    );
+  }
+}

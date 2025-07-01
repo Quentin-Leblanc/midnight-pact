@@ -366,3 +366,92 @@ def send_private_message_route(room_code):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# 🆕 ==================== ROUTES TESTAMENT & NOTES DE MORT ====================
+
+@gameplay_bp.route('/games/<room_code>/player/<player_name>/will', methods=['GET'])
+def get_player_will_route(room_code, player_name):
+    """Get player's last will"""
+    try:
+        will_data = game_engine.get_player_will(room_code, player_name)
+        
+        if will_data:
+            return jsonify({'will': will_data})
+        else:
+            return jsonify({'will': None})
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/player/<player_name>/will', methods=['POST'])
+def save_player_will_route(room_code, player_name):
+    """Save player's last will"""
+    try:
+        data = request.get_json()
+        will_content = data.get('will', '')
+        
+        success, message = game_engine.save_last_will(room_code, player_name, will_content)
+        
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/revealed-wills', methods=['GET'])
+def get_revealed_wills_route(room_code):
+    """Get all revealed wills"""
+    try:
+        wills = game_engine.get_revealed_wills(room_code)
+        return jsonify({'revealed_wills': wills})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/death-note', methods=['POST'])
+def save_death_note_route(room_code):
+    """Save death note from killer to victim"""
+    try:
+        data = request.get_json()
+        killer_name = data.get('killer_name')
+        victim_name = data.get('victim_name')
+        death_note = data.get('death_note', '')
+        
+        if not killer_name or not victim_name:
+            return jsonify({'error': 'killer_name and victim_name required'}), 400
+        
+        success, message = game_engine.save_death_note(room_code, killer_name, victim_name, death_note)
+        
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/death-note-targets', methods=['GET'])
+def get_death_note_targets_route(room_code):
+    """Get available targets for death notes"""
+    try:
+        player_name = request.args.get('player_name')
+        if not player_name:
+            return jsonify({'error': 'player_name required'}), 400
+        
+        targets = game_engine.get_available_death_note_targets(room_code, player_name)
+        return jsonify({'targets': targets})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/death-notes', methods=['GET'])
+def get_death_notes_history_route(room_code):
+    """Get revealed death notes history"""
+    try:
+        notes = game_engine.get_death_notes_history(room_code)
+        return jsonify({'death_notes': notes})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+

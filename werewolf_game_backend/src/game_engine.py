@@ -65,6 +65,9 @@ class GameEngine:
             'private_messages': [],         # 🆕 Messages privés
             'night_chat_enabled': True,     # 🆕 Chat nocturne activé
             'last_elimination': None,
+            'last_wills': {},               # 🆕 Testaments des joueurs
+            'death_notes': {},              # 🆕 Notes de mort des tueurs
+            'revealed_wills': [],           # 🆕 Testaments révélés publiquement
             'phase_history': [],
             'game_history': [],
             
@@ -511,6 +514,20 @@ class GameEngine:
                 }
                 game['eliminated_players'].append(eliminated_info)
                 elimination_stories.append(self._generate_death_story(werewolf_target, 'werewolf_kill', target_player['role']))
+                
+                # 🆕 Révéler testament et note de mort
+                self.reveal_will_on_death(game, werewolf_target)
+                
+                # Trouver le tueur werewolf pour la note de mort
+                werewolf_killer = None
+                for player_name, actions in game['night_actions'].items():
+                    player = game['players'][player_name]
+                    if player['role'] == Role.WEREWOLF and 'kill' in actions and actions['kill'] == werewolf_target:
+                        werewolf_killer = player_name
+                        break
+                
+                if werewolf_killer:
+                    self.reveal_death_note_on_kill(game, werewolf_killer, werewolf_target)
                 
                 # Ajouter à l'historique
                 game['game_history'].append({
@@ -1134,6 +1151,9 @@ class GameEngine:
         }
         game['eliminated_players'].append(eliminated_info)
         
+        # 🆕 Révéler testament automatiquement à l'exécution
+        self.reveal_will_on_death(game, accused)
+        
         # Générer histoire de mort
         execution_story = self._generate_death_story(accused, 'voted_out', accused_role)
         game['last_elimination'] = execution_story
@@ -1330,6 +1350,229 @@ class GameEngine:
             })
         
         return channels
+    
+    # 🆕 ==================== SYSTÈME DE TESTAMENT ====================
+    
+    def save_last_will(self, game_id, player_name, last_will):
+        """Sauvegarde le testament d'un joueur"""
+        if game_id not in self.games:
+            return False, "Game not found"
+        
+        game = self.games[game_id]
+        
+        if player_name not in game['players']:
+            return False, "Player not found"
+        
+        player = game['players'][player_name]
+        
+        # Seuls les vivants peuvent modifier leur testament
+        if not player['alive']:
+            return False, "Les morts ne peuvent pas modifier leur testament"
+        
+        # Limiter la taille du testament
+        if len(last_will) > 1000:
+            return False, "Testament trop long (max 1000 caractères)"
+        
+        game['last_wills'][player_name] = {
+            'content': last_will,
+            'last_updated': datetime.now().isoformat(),
+            'day': game.get('day_count', 1)
+        }
+        
+        # Sauvegarder aussi dans le joueur pour compatibilité
+        player['last_will'] = last_will
+        
+        return True, "Testament sauvegardé"
+    
+    def get_player_will(self, game_id, player_name):
+        """Récupère le testament d'un joueur"""
+        if game_id not in self.games:
+            return None
+        
+        game = self.games[game_id]
+        
+        if player_name not in game['players']:
+            return None
+        
+        will_data = game['last_wills'].get(player_name)
+        if will_data:
+            return will_data
+        
+        # Fallback pour compatibilité
+        player = game['players'][player_name]
+        if player.get('last_will'):
+            return {
+                'content': player['last_will'],
+                'last_updated': None,
+                'day': game.get('day_count', 1)
+            }
+        
+        return None
+    
+    def reveal_will_on_death(self, game, player_name):
+        """Révèle automatiquement le testament d'un joueur mort"""
+        will_data = self.get_player_will(game['id'], player_name)
+        
+        if will_data and will_data['content'].strip():
+            revealed_will = {
+                'player': player_name,
+                'content': will_data['content'],
+                'death_day': game.get('day_count', 1),
+                'death_time': datetime.now().isoformat(),
+                'cause': 'death_revelation'
+            }
+            
+            game['revealed_wills'].append(revealed_will)
+            
+            # Ajouter notification dans le chat public
+            will_notification = {
+                'player': 'SYSTEM',
+                'player_name': 'SYSTEM',
+                'message': f"📜 Testament de {player_name} révélé : \"{will_data['content'][:100]}{'...' if len(will_data['content']) > 100 else ''}\"",
+                'timestamp': datetime.now().isoformat(),
+                'day': game.get('day_count', 0),
+                'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase'],
+                'channel': 'public',
+                'is_will_reveal': True,
+                'full_will': will_data['content']
+            }
+            
+            game['chat_messages'].append(will_notification)
+            
+            return True
+        
+        return False
+    
+    # 🆕 ==================== SYSTÈME DE NOTES DE MORT ====================
+    
+    def save_death_note(self, game_id, killer_name, victim_name, death_note):
+        """Sauvegarde une note de mort d'un tueur"""
+        if game_id not in self.games:
+            return False, "Game not found"
+        
+        game = self.games[game_id]
+        
+        if killer_name not in game['players']:
+            return False, "Killer not found"
+        
+        killer = game['players'][killer_name]
+        
+        # Vérifier que le joueur peut laisser des notes de mort
+        if not self._can_leave_death_note(killer):
+            return False, "Vous ne pouvez pas laisser de notes de mort"
+        
+        # Limiter la taille de la note
+        if len(death_note) > 300:
+            return False, "Note de mort trop longue (max 300 caractères)"
+        
+        # Créer la clé de la note
+        note_key = f"{killer_name}_{victim_name}_{game.get('day_count', 1)}"
+        
+        game['death_notes'][note_key] = {
+            'killer': killer_name,
+            'victim': victim_name,
+            'content': death_note,
+            'day': game.get('day_count', 1),
+            'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase'],
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return True, "Note de mort sauvegardée"
+    
+    def _can_leave_death_note(self, player):
+        """Vérifie si un joueur peut laisser des notes de mort"""
+        if not player['alive']:
+            return False
+        
+        # Seuls certains rôles peuvent laisser des notes de mort
+        killer_roles = [Role.WEREWOLF]  # À étendre avec Serial Killer, etc.
+        
+        return player['role'] in killer_roles
+    
+    def reveal_death_note_on_kill(self, game, killer_name, victim_name):
+        """Révèle la note de mort quand une victime est tuée"""
+        note_key = f"{killer_name}_{victim_name}_{game.get('day_count', 1)}"
+        
+        death_note_data = game['death_notes'].get(note_key)
+        
+        if death_note_data and death_note_data['content'].strip():
+            # Ajouter la note à l'histoire des révélations
+            death_note_reveal = {
+                'killer': killer_name,
+                'victim': victim_name,
+                'content': death_note_data['content'],
+                'day': game.get('day_count', 1),
+                'timestamp': datetime.now().isoformat(),
+                'revealed': True
+            }
+            
+            # Ajouter notification dans le chat public
+            note_notification = {
+                'player': 'SYSTEM',
+                'player_name': 'SYSTEM', 
+                'message': f"🩸 Note trouvée sur le corps de {victim_name} : \"{death_note_data['content']}\"",
+                'timestamp': datetime.now().isoformat(),
+                'day': game.get('day_count', 0),
+                'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase'],
+                'channel': 'public',
+                'is_death_note': True,
+                'killer_role': 'unknown'  # Ne pas révéler l'identité du tueur
+            }
+            
+            game['chat_messages'].append(note_notification)
+            
+            return True
+        
+        return False
+    
+    def get_available_death_note_targets(self, game_id, player_name):
+        """Retourne les cibles possibles pour une note de mort"""
+        if game_id not in self.games:
+            return []
+        
+        game = self.games[game_id]
+        
+        if player_name not in game['players']:
+            return []
+        
+        player = game['players'][player_name]
+        
+        if not self._can_leave_death_note(player):
+            return []
+        
+        # Retourner tous les joueurs vivants sauf le tueur
+        targets = []
+        for name, target_player in game['players'].items():
+            if target_player['alive'] and name != player_name:
+                targets.append({
+                    'name': name,
+                    'role': target_player['role'].value if hasattr(target_player['role'], 'value') else str(target_player['role'])
+                })
+        
+        return targets
+    
+    def get_revealed_wills(self, game_id):
+        """Récupère tous les testaments révélés"""
+        if game_id not in self.games:
+            return []
+        
+        return self.games[game_id].get('revealed_wills', [])
+    
+    def get_death_notes_history(self, game_id):
+        """Récupère l'historique des notes de mort"""
+        if game_id not in self.games:
+            return []
+        
+        game = self.games[game_id]
+        
+        # Filtrer seulement les notes révélées (sur des victimes mortes)
+        revealed_notes = []
+        for note_data in game['death_notes'].values():
+            victim_name = note_data['victim']
+            if victim_name in game['players'] and not game['players'][victim_name]['alive']:
+                revealed_notes.append(note_data)
+        
+        return revealed_notes
 
 # Global game engine instance
 game_engine = GameEngine() 
