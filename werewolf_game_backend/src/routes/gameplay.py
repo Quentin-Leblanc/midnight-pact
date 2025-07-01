@@ -476,12 +476,12 @@ def get_death_notes_history_route(room_code):
 
 # 🆕 ==================== CHAPITRE 2 - ROUTES INVESTIGATION ====================
 
+# API Format: /api/investigation-results/<room_code>?player_name=<name>
 @gameplay_bp.route('/investigation-results/<room_code>', methods=['GET'])
-def get_investigation_results(room_code):
-    """Récupère les résultats d'investigation d'un joueur"""
+def get_investigation_results_api(room_code):
+    """Récupère les résultats d'investigation d'un joueur (API route)"""
     try:
-        data = request.get_json() or {}
-        player_name = data.get('player_name') or request.args.get('player_name')
+        player_name = request.args.get('player_name')
         
         if not player_name:
             return jsonify({'success': False, 'message': 'Nom du joueur requis'}), 400
@@ -497,9 +497,10 @@ def get_investigation_results(room_code):
         print(f"DEBUG: Error getting investigation results: {e}")
         return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
 
+# API Format: /api/investigation-history/<room_code>
 @gameplay_bp.route('/investigation-history/<room_code>', methods=['GET'])
-def get_investigation_history(room_code):
-    """Récupère l'historique complet des investigations (pour admin/spectateurs)"""
+def get_investigation_history_api(room_code):
+    """Récupère l'historique complet des investigations (API route)"""
     try:
         history = game_engine.get_investigation_history(room_code)
         
@@ -512,9 +513,10 @@ def get_investigation_history(room_code):
         print(f"DEBUG: Error getting investigation history: {e}")
         return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
 
+# API Format: /api/sheriff-investigate/<room_code>
 @gameplay_bp.route('/sheriff-investigate/<room_code>', methods=['POST'])
-def sheriff_investigate(room_code):
-    """Effectue une investigation Sheriff"""
+def sheriff_investigate_api(room_code):
+    """Effectue une investigation Sheriff (API route)"""
     try:
         data = request.get_json()
         player_name = data.get('player_name')
@@ -534,9 +536,10 @@ def sheriff_investigate(room_code):
         print(f"DEBUG: Error in sheriff investigation: {e}")
         return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
 
+# API Format: /api/investigator-investigate/<room_code>
 @gameplay_bp.route('/investigator-investigate/<room_code>', methods=['POST'])
-def investigator_investigate(room_code):
-    """Effectue une investigation Investigator"""
+def investigator_investigate_api(room_code):
+    """Effectue une investigation Investigator (API route)"""
     try:
         data = request.get_json()
         player_name = data.get('player_name')

@@ -1,0 +1,360 @@
+/* 🎭 ANIMATIONS DES PHASES - STYLE MAFIA SC2 */
+
+/* ==================== ANIMATIONS DES ICONES DE PHASE ==================== */
+
+@keyframes lobbyPulse {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 10px rgba(147, 197, 253, 0.5);
+  }
+  50% { 
+    transform: scale(1.1); 
+    box-shadow: 0 0 20px rgba(147, 197, 253, 0.8);
+  }
+}
+
+@keyframes nightShimmer {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+  }
+  25% { 
+    transform: scale(1.05) rotate(-2deg); 
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.9);
+  }
+  75% { 
+    transform: scale(1.05) rotate(2deg); 
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.9);
+  }
+}
+
+@keyframes dayRadiance {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.7);
+  }
+  50% { 
+    transform: scale(1.15); 
+    box-shadow: 0 0 40px rgba(251, 191, 36, 1);
+  }
+}
+
+@keyframes votingTension {
+  0%, 100% { 
+    transform: scale(1) rotateZ(0deg); 
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+  }
+  25% { 
+    transform: scale(1.1) rotateZ(-5deg); 
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.9);
+  }
+  75% { 
+    transform: scale(1.1) rotateZ(5deg); 
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.9);
+  }
+}
+
+@keyframes trialDrama {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+  }
+  33% { 
+    transform: scale(1.2) rotateY(10deg); 
+    box-shadow: 0 0 40px rgba(239, 68, 68, 1);
+  }
+  66% { 
+    transform: scale(1.2) rotateY(-10deg); 
+    box-shadow: 0 0 40px rgba(239, 68, 68, 1);
+  }
+}
+
+@keyframes executionSolemnity {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 25px rgba(127, 29, 29, 0.9);
+    filter: brightness(1);
+  }
+  50% { 
+    transform: scale(0.9); 
+    box-shadow: 0 0 50px rgba(127, 29, 29, 1);
+    filter: brightness(0.7);
+  }
+}
+
+/* ==================== ANIMATIONS DES TRANSITIONS ==================== */
+
+.phase-transition-overlay {
+  animation: phaseTransitionFade 3s ease-in-out;
+}
+
+@keyframes phaseTransitionFade {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.transition-animation {
+  animation: transitionSlideUp 3s ease-out;
+}
+
+@keyframes transitionSlideUp {
+  0% { 
+    transform: translateY(100px) scale(0.8); 
+    opacity: 0; 
+  }
+  30% { 
+    transform: translateY(0) scale(1.1); 
+    opacity: 1; 
+  }
+  70% { 
+    transform: translateY(0) scale(1); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: translateY(-50px) scale(0.9); 
+    opacity: 0; 
+  }
+}
+
+.transition-icon {
+  animation: transitionIconSpin 3s ease-in-out;
+}
+
+@keyframes transitionIconSpin {
+  0% { 
+    transform: rotate(-180deg) scale(0.5); 
+    opacity: 0; 
+  }
+  50% { 
+    transform: rotate(0deg) scale(1.2); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: rotate(180deg) scale(0.8); 
+    opacity: 0.8; 
+  }
+}
+
+.transition-title {
+  animation: transitionTitleGlow 3s ease-in-out;
+}
+
+@keyframes transitionTitleGlow {
+  0% { 
+    transform: scale(0.7); 
+    opacity: 0; 
+    text-shadow: 0 0 0px currentColor; 
+  }
+  50% { 
+    transform: scale(1.1); 
+    opacity: 1; 
+    text-shadow: 0 0 20px currentColor, 0 0 40px currentColor; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 0.9; 
+    text-shadow: 0 0 10px currentColor; 
+  }
+}
+
+.transition-subtitle {
+  animation: transitionSubtitleSlide 3s ease-out 0.5s both;
+}
+
+@keyframes transitionSubtitleSlide {
+  0% { 
+    transform: translateX(-100px); 
+    opacity: 0; 
+  }
+  50% { 
+    transform: translateX(0); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: translateX(100px); 
+    opacity: 0; 
+  }
+}
+
+.transition-description {
+  animation: transitionDescriptionFade 3s ease-in-out 1s both;
+}
+
+@keyframes transitionDescriptionFade {
+  0% { 
+    transform: translateY(30px); 
+    opacity: 0; 
+  }
+  40% { 
+    transform: translateY(0); 
+    opacity: 1; 
+  }
+  60% { 
+    transform: translateY(0); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: translateY(-30px); 
+    opacity: 0; 
+  }
+}
+
+/* ==================== ANIMATIONS DES TIMERS ==================== */
+
+.timer-critical {
+  animation: timerCritical 1s ease-in-out infinite;
+}
+
+@keyframes timerCritical {
+  0%, 100% { 
+    transform: scale(1); 
+    filter: brightness(1); 
+  }
+  50% { 
+    transform: scale(1.05); 
+    filter: brightness(1.3); 
+  }
+}
+
+/* ==================== ANIMATIONS DES PHASES DE FOND ==================== */
+
+.phase-display {
+  position: relative;
+  overflow: hidden;
+}
+
+.phase-display::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.1), 
+    transparent
+  );
+  animation: phaseDisplayShine 4s ease-in-out infinite;
+}
+
+@keyframes phaseDisplayShine {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+/* ==================== APPLICATIONS DES ANIMATIONS ==================== */
+
+.lobbyPulse {
+  animation: lobbyPulse 2s ease-in-out infinite;
+}
+
+.nightShimmer {
+  animation: nightShimmer 3s ease-in-out infinite;
+}
+
+.dayRadiance {
+  animation: dayRadiance 2.5s ease-in-out infinite;
+}
+
+.votingTension {
+  animation: votingTension 1.5s ease-in-out infinite;
+}
+
+.trialDrama {
+  animation: trialDrama 2s ease-in-out infinite;
+}
+
+.executionSolemnity {
+  animation: executionSolemnity 3s ease-in-out infinite;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 768px) {
+  .phase-display {
+    padding: 1rem;
+  }
+  
+  .transition-title {
+    font-size: 2.5rem;
+  }
+  
+  .transition-icon {
+    width: 4rem;
+    height: 4rem;
+  }
+}
+
+/* ==================== BACKGROUND PHASES DYNAMIQUES ==================== */
+
+/* Phase Lobby */
+.bg-lobby {
+  background: linear-gradient(135deg, #1e3a8a, #7c3aed, #3730a3);
+  animation: lobbyBackground 8s ease-in-out infinite;
+}
+
+@keyframes lobbyBackground {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(15deg) brightness(1.1); }
+}
+
+/* Phase Nuit */
+.bg-night {
+  background: linear-gradient(135deg, #111827, #7c2d12, #000000);
+  animation: nightBackground 10s ease-in-out infinite;
+}
+
+@keyframes nightBackground {
+  0%, 100% { filter: hue-rotate(0deg) brightness(0.8); }
+  25% { filter: hue-rotate(-10deg) brightness(0.6); }
+  75% { filter: hue-rotate(10deg) brightness(0.9); }
+}
+
+/* Phase Jour */
+.bg-day {
+  background: linear-gradient(135deg, #d97706, #ea580c, #dc2626);
+  animation: dayBackground 6s ease-in-out infinite;
+}
+
+@keyframes dayBackground {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(20deg) brightness(1.2); }
+}
+
+/* Phase Vote */
+.bg-voting {
+  background: linear-gradient(135deg, #b45309, #ea580c, #dc2626);
+  animation: votingBackground 4s ease-in-out infinite;
+}
+
+@keyframes votingBackground {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  33% { filter: hue-rotate(-15deg) brightness(1.1); }
+  66% { filter: hue-rotate(15deg) brightness(1.1); }
+}
+
+/* Phase Procès */
+.bg-trial {
+  background: linear-gradient(135deg, #7f1d1d, #b45309, #eab308);
+  animation: trialBackground 3s ease-in-out infinite;
+}
+
+@keyframes trialBackground {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(30deg) brightness(1.3); }
+}
+
+/* Phase Exécution */
+.bg-lynching {
+  background: linear-gradient(135deg, #450a0a, #000000, #374151);
+  animation: lynchingBackground 5s ease-in-out infinite;
+}
+
+@keyframes lynchingBackground {
+  0%, 100% { filter: hue-rotate(0deg) brightness(0.7); }
+  50% { filter: hue-rotate(-20deg) brightness(0.5); }
+}

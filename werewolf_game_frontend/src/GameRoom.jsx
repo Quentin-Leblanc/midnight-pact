@@ -38,7 +38,9 @@ import {
   FileText,
 } from 'lucide-react';
 import './animations.css';
+import './styles/phaseAnimations.css';
 import InvestigationPanel from './components/InvestigationPanel';
+import PhaseDisplay from './components/PhaseDisplay';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -220,7 +222,7 @@ const PHASE_INFO = {
   },
 };
 
-// 🆕 Chat Multi-Canaux avec Support Nocturne
+// 🔧 Chat Simplifié et Transparent (Sans Messages Privés)
 const FloatingChat = ({
   chatMessages,
   newMessage,
@@ -232,200 +234,57 @@ const FloatingChat = ({
   playerAlive,
   roomCode,
 }) => {
-  const [activeChannel, setActiveChannel] = useState('public');
-  const [availableChannels, setAvailableChannels] = useState([]);
-  const [allMessages, setAllMessages] = useState({});
-  const [selectedRecipient, setSelectedRecipient] = useState('');
-  const [alivePlayersForPM, setAlivePlayersForPM] = useState([]);
   const chatEndRef = useRef(null);
-
-  // Récupérer les canaux et messages disponibles
-  useEffect(() => {
-    if (roomCode && playerName) {
-      fetchAvailableChannels();
-      fetchAllMessages();
-    }
-  }, [roomCode, playerName, gamePhase]);
-
-  const fetchAvailableChannels = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/games/${roomCode}/chat-channels?player_name=${playerName}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableChannels(data.channels || []);
-        
-        // Si le canal actuel n'est plus disponible, changer au premier disponible
-        if (data.channels.length > 0 && !data.channels.some(ch => ch.id === activeChannel)) {
-          setActiveChannel(data.channels[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur récupération canaux:', error);
-    }
-  };
-
-  const fetchAllMessages = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/games/${roomCode}/chat-messages?player_name=${playerName}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAllMessages(data.messages || {});
-      }
-    } catch (error) {
-      console.error('Erreur récupération messages:', error);
-    }
-  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [allMessages, activeChannel]);
+  }, [chatMessages]);
 
-  const sendChannelMessage = async () => {
-    if (!newMessage.trim()) return;
-
-    try {
-      let response;
-      
-      if (activeChannel === 'private' && selectedRecipient) {
-        // Message privé
-        response = await fetch(`${API_BASE_URL}/games/${roomCode}/private-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sender: playerName,
-            recipient: selectedRecipient,
-            message: newMessage.trim()
-          })
-        });
-      } else {
-        // Message dans un canal
-        response = await fetch(`${API_BASE_URL}/games/${roomCode}/chat/${activeChannel}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            player_name: playerName,
-            message: newMessage.trim()
-          })
-        });
-      }
-
-      if (response.ok) {
-        setNewMessage('');
-        // Rafraîchir les messages
-        setTimeout(() => fetchAllMessages(), 200);
-      }
-    } catch (error) {
-      console.error('Erreur envoi message:', error);
-    }
-  };
-
-  // Obtenir les messages du canal actif (inclut fallback vers chatMessages legacy)
-  const getCurrentMessages = () => {
-    if (activeChannel === 'public' && (!allMessages.public || allMessages.public.length === 0)) {
-      // Fallback vers les anciens messages publics
-      return chatMessages || [];
-    }
-    return allMessages[activeChannel] || [];
-  };
-
-  // Canal actif info
-  const activeChannelInfo = availableChannels.find(ch => ch.id === activeChannel) || {
-    id: 'public',
-    name: 'Village',
-    color: '#3b82f6'
-  };
-
-  // Vérifier si on peut chatter dans le canal actuel
-  const canChat = availableChannels.some(ch => ch.id === activeChannel);
+  // Vérifier si on peut chatter (seulement pendant le jour et si vivant)
+  const canChat = playerAlive && (gamePhase === 'day' || gamePhase === 'voting' || gamePhase === 'trial');
 
   return (
-    <div className="fixed bottom-4 left-4 w-[42rem] h-[28rem] bg-slate-800/95 border border-slate-600 rounded-lg backdrop-blur-md z-50 shadow-2xl">
-      {/* Header avec onglets de canaux */}
-      <div className="border-b border-slate-600">
-        <div className="flex items-center justify-between p-3 border-b border-slate-700">
+    <div className="fixed bottom-4 left-4 w-[42rem] h-[28rem] bg-slate-800/70 border border-slate-600/50 rounded-lg backdrop-blur-md z-40 shadow-2xl">
+      {/* Header simplifié */}
+      <div className="border-b border-slate-600/50 p-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <MessageCircle 
-              className="w-4 h-4" 
-              style={{ color: activeChannelInfo.color }}
-            />
-            <span className="text-white font-medium text-sm">
-              {activeChannelInfo.name}
-            </span>
+            <MessageCircle className="w-4 h-4 text-blue-400" />
+            <span className="text-white font-medium text-sm">Chat du Village</span>
           </div>
-          <Badge 
-            variant="secondary" 
-            className="text-xs"
-            style={{ backgroundColor: activeChannelInfo.color + '20', color: activeChannelInfo.color }}
-          >
+          <Badge variant="secondary" className="text-xs bg-blue-600/20 text-blue-400">
             {gamePhase}
           </Badge>
-        </div>
-        
-        {/* Onglets des canaux */}
-        <div className="flex overflow-x-auto">
-          {availableChannels.map((channel) => (
-            <button
-              key={channel.id}
-              onClick={() => setActiveChannel(channel.id)}
-              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-                activeChannel === channel.id
-                  ? 'border-blue-400 text-blue-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
-              }`}
-            >
-              <span
-                className="w-2 h-2 rounded-full inline-block mr-2"
-                style={{ backgroundColor: channel.color }}
-              />
-              {channel.name}
-            </button>
-          ))}
         </div>
       </div>
 
       {/* Zone des messages */}
       <ScrollArea className="h-64 p-3">
-        {getCurrentMessages().length === 0 ? (
+        {chatMessages.length === 0 ? (
           <p className="text-slate-400 text-center text-sm">
-            {activeChannel === 'mafia' ? 'La meute se concerte...' :
-             activeChannel === 'dead' ? 'Les esprits murmurent...' :
-             activeChannel === 'private' ? 'Aucune conversation secrète...' :
-             'Le village est silencieux...'}
+            Le village est silencieux...
           </p>
         ) : (
           <div className="space-y-2">
-            {getCurrentMessages().map((msg, index) => {
-              const msgPlayerName = msg.player || msg.player_name || msg.sender || 'Joueur';
+            {chatMessages.map((msg, index) => {
+              const msgPlayerName = msg.player || msg.player_name || 'Joueur';
               const message = msg.message || '';
               const isSystemMessage = msgPlayerName === 'SYSTEM';
-              const isPrivateMessage = msg.channel === 'private';
               
               return (
                 <div
-                  key={`chat-${activeChannel}-${index}-${msg.timestamp || Date.now()}`}
+                  key={`chat-${index}-${msg.timestamp || Date.now()}`}
                   className={`text-sm ${isSystemMessage ? 'opacity-75 italic' : ''}`}
                 >
-                  {isPrivateMessage && msg.recipient ? (
-                    // Format spécial pour MP
-                    <div className="bg-purple-900/20 border border-purple-600/30 rounded p-2">
-                      <div className="text-xs text-purple-400 mb-1">
-                        De: {msg.sender} → À: {msg.recipient}
-                      </div>
-                      <span className="text-white">{message}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span
-                        className="font-medium"
-                        style={{ 
-                          color: isSystemMessage ? '#fbbf24' : playerColors[msgPlayerName] || '#94a3b8' 
-                        }}
-                      >
-                        {msgPlayerName}:
-                      </span>
-                      <span className="text-white ml-2">{message}</span>
-                    </>
-                  )}
+                  <span
+                    className="font-medium"
+                    style={{ 
+                      color: isSystemMessage ? '#fbbf24' : playerColors[msgPlayerName] || '#94a3b8' 
+                    }}
+                  >
+                    {msgPlayerName}:
+                  </span>
+                  <span className="text-white ml-2">{message}</span>
                 </div>
               );
             })}
@@ -435,26 +294,14 @@ const FloatingChat = ({
       </ScrollArea>
 
       {/* Zone de saisie */}
-      <div className={`p-3 border-t border-slate-600 ${!canChat ? 'opacity-50' : ''}`}>
-        {/* Sélecteur de destinataire pour MP */}
-        {activeChannel === 'private' && (
-          <div className="mb-2">
-            <select
-              value={selectedRecipient}
-              onChange={(e) => setSelectedRecipient(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded px-2 py-1"
-            >
-              <option value="">Choisir un destinataire...</option>
-              {/* TODO: Récupérer liste des joueurs vivants */}
-            </select>
-          </div>
-        )}
-        
+      <div className={`p-3 border-t border-slate-600/50 ${!canChat ? 'opacity-50' : ''}`}>
         {!canChat && (
           <p className="text-slate-400 text-xs mb-2 text-center">
-            {activeChannel === 'public' && gamePhase === 'night' 
+            {!playerAlive 
+              ? 'Les morts ne peuvent plus parler'
+              : gamePhase === 'night' 
               ? 'Le chat public est fermé la nuit'
-              : 'Vous ne pouvez pas écrire dans ce canal'}
+              : 'Vous ne pouvez pas écrire maintenant'}
           </p>
         )}
         
@@ -462,24 +309,18 @@ const FloatingChat = ({
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={
-              activeChannel === 'private' && !selectedRecipient 
-                ? 'Choisissez un destinataire...'
-                : canChat 
-                ? `Message ${activeChannelInfo.name}...` 
-                : 'Chat indisponible'
-            }
-            className="bg-slate-700/50 border-slate-600 text-white text-sm"
+            placeholder={canChat ? "Message du village..." : "Chat indisponible"}
+            className="bg-slate-700/50 border-slate-600/50 text-white text-sm"
             onKeyPress={(e) =>
-              e.key === 'Enter' && canChat && sendChannelMessage()
+              e.key === 'Enter' && canChat && sendChatMessage()
             }
-            disabled={!canChat || (activeChannel === 'private' && !selectedRecipient)}
+            disabled={!canChat}
           />
           <Button
-            onClick={sendChannelMessage}
+            onClick={sendChatMessage}
             size="sm"
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={!canChat || (activeChannel === 'private' && !selectedRecipient)}
+            disabled={!canChat}
           >
             <Send className="w-3 h-3" />
           </Button>
@@ -975,8 +816,8 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setActionFeedback('Partie démarrée avec succès !');
-        setTimeout(() => setActionFeedback(''), 3000);
+              setActionFeedback('Partie démarrée avec succès !');
+      setTimeout(() => setActionFeedback(''), 8000);
         fetchGameData();
       } else {
         setError(data.error || 'Erreur lors du démarrage de la partie');
@@ -1025,8 +866,8 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setActionFeedback(data.message || 'Action effectuée avec succès');
-        setTimeout(() => setActionFeedback(''), 3000);
+              setActionFeedback(data.message || 'Action effectuée avec succès');
+      setTimeout(() => setActionFeedback(''), 8000);
 
         // Mettre à jour le vote actuel si c'est un vote
         if (actionType === 'vote' || endpoint.includes('/vote')) {
@@ -1644,6 +1485,16 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
           )}
 
           {/* Nouvelle mise en page 3 colonnes */}
+          {/* 🆕 Affichage des phases style Mafia SC2 */}
+          <PhaseDisplay
+            currentPhase={gameState?.phase || 'lobby'}
+            timeRemaining={gameState?.remaining_time || 0}
+            totalTime={currentPhase.duration || 120}
+            showTransition={showPhaseTransition}
+            transitionText={phaseEvents}
+            dayNumber={gameState?.day_count || 1}
+          />
+
           <div className="content-grid-3col">
             {/* Colonne Gauche - Guide des rôles + Cimetière */}
             <div className="space-y-6">
@@ -1651,24 +1502,8 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
               <Cemetery gameState={gameState} />
             </div>
 
-            {/* Colonne Centrale - Countdown + Événements + Actions */}
+            {/* Colonne Centrale - Événements + Actions */}
             <div className="central-column space-y-6">
-              {/* Phase Timer */}
-              <div className="timer-display">
-                <div className="phase-display">
-                  {formatTime(gameState.remaining_time || 0)}
-                </div>
-                <div className="phase-name">{currentPhase.name}</div>
-                {gameState.day_count && (
-                  <div className="day-counter">Jour {gameState.day_count}</div>
-                )}
-                <div className="mt-4">
-                  <Progress
-                    value={getProgressPercentage()}
-                    className="w-full h-3"
-                  />
-                </div>
-              </div>
 
               {/* Événements de la partie */}
               <Card className="bg-slate-800/90 border-slate-700 card-enter backdrop-blur-sm">
