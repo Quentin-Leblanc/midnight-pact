@@ -474,3 +474,85 @@ def get_death_notes_history_route(room_code):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# 🆕 ==================== CHAPITRE 2 - ROUTES INVESTIGATION ====================
+
+@gameplay_bp.route('/investigation-results/<room_code>', methods=['GET'])
+def get_investigation_results(room_code):
+    """Récupère les résultats d'investigation d'un joueur"""
+    try:
+        data = request.get_json() or {}
+        player_name = data.get('player_name') or request.args.get('player_name')
+        
+        if not player_name:
+            return jsonify({'success': False, 'message': 'Nom du joueur requis'}), 400
+        
+        results = game_engine.get_investigation_results(room_code, player_name)
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Error getting investigation results: {e}")
+        return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
+
+@gameplay_bp.route('/investigation-history/<room_code>', methods=['GET'])
+def get_investigation_history(room_code):
+    """Récupère l'historique complet des investigations (pour admin/spectateurs)"""
+    try:
+        history = game_engine.get_investigation_history(room_code)
+        
+        return jsonify({
+            'success': True,
+            'history': history
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Error getting investigation history: {e}")
+        return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
+
+@gameplay_bp.route('/sheriff-investigate/<room_code>', methods=['POST'])
+def sheriff_investigate(room_code):
+    """Effectue une investigation Sheriff"""
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        target_name = data.get('target_name')
+        
+        if not player_name or not target_name:
+            return jsonify({'success': False, 'message': 'Paramètres manquants'}), 400
+        
+        success, message = game_engine.perform_sheriff_investigation(room_code, player_name, target_name)
+        
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Error in sheriff investigation: {e}")
+        return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
+
+@gameplay_bp.route('/investigator-investigate/<room_code>', methods=['POST'])
+def investigator_investigate(room_code):
+    """Effectue une investigation Investigator"""
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        target_name = data.get('target_name')
+        
+        if not player_name or not target_name:
+            return jsonify({'success': False, 'message': 'Paramètres manquants'}), 400
+        
+        success, message = game_engine.perform_investigator_investigation(room_code, player_name, target_name)
+        
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Error in investigator investigation: {e}")
+        return jsonify({'success': False, 'message': 'Erreur serveur'}), 500
+

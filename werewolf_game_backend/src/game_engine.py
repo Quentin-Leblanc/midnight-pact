@@ -9,6 +9,9 @@ class Role(Enum):
     WITCH = "witch"
     GUARD = "bodyguard"
     HUNTER = "hunter"
+    # 🆕 CHAPITRE 2 - RÔLES INVESTIGATIFS
+    SHERIFF = "sheriff"           # Détecte "Suspect" vs "Not Suspicious"  
+    INVESTIGATOR = "investigator" # Donne indices sur type de rôle
 
 class Phase(Enum):
     WAITING = "waiting"
@@ -36,6 +39,20 @@ class ChatChannel(Enum):
     TRIAD = "triad"            # Chat privé des triad  
     DEAD = "dead"              # Chat des morts
     PRIVATE = "private"        # Messages privés
+
+# 🆕 CHAPITRE 2 - ENUMS INVESTIGATION
+class SheriffResult(Enum):
+    SUSPICIOUS = "suspicious"       # Cible suspecte (mafia/evil)
+    NOT_SUSPICIOUS = "not_suspicious"  # Cible non suspecte (town/neutral)
+
+class InvestigationGroup(Enum):
+    # Groupes d'investigation selon SC2 Mafia
+    PROTECTORS = "protectors"       # Bodyguard, Lookout, Spy
+    INVESTIGATORS = "investigators"  # Sheriff, Investigator, Detective  
+    KILLERS = "killers"            # Vigilante, Veteran, Werewolf
+    SUPPORT = "support"            # Citizen, Mayor, Mason
+    WITCHES = "witches"            # Witch, Witch Doctor
+    NEUTRALS = "neutrals"          # Survivor, Amnesiac, etc.
 
 class GameEngine:
     def __init__(self):
@@ -68,6 +85,8 @@ class GameEngine:
             'last_wills': {},               # 🆕 Testaments des joueurs
             'death_notes': {},              # 🆕 Notes de mort des tueurs
             'revealed_wills': [],           # 🆕 Testaments révélés publiquement
+            'investigation_results': {},    # 🆕 Résultats d'investigation par joueur
+            'investigation_history': [],   # 🆕 Historique des investigations
             'phase_history': [],
             'game_history': [],
             
@@ -150,21 +169,21 @@ class GameEngine:
         return True, "Game started successfully"
     
     def _assign_roles(self, game):
-        """Assign roles to players based on game size"""
+        """Assign roles to players based on game size - 🆕 CHAPITRE 2 avec Sheriff & Investigator"""
         player_count = len(game['players'])
         player_names = list(game['players'].keys())
         random.shuffle(player_names)
         
-        # Role distribution based on player count
+        # 🆕 Distribution des rôles élargie pour Chapitre 2
         if player_count <= 6:
             werewolves = 1
-            special_roles = 2  # seer + witch
+            special_roles = 3  # seer + witch + sheriff OU investigator
         elif player_count <= 10:
             werewolves = 2
-            special_roles = 3  # seer + witch + guard
+            special_roles = 4  # seer + witch + guard + sheriff OU investigator
         else:
             werewolves = 3
-            special_roles = 4  # seer + witch + guard + hunter
+            special_roles = 6  # seer + witch + guard + hunter + sheriff + investigator
         
         roles_to_assign = []
         
@@ -172,14 +191,28 @@ class GameEngine:
         for _ in range(werewolves):
             roles_to_assign.append(Role.WEREWOLF)
         
-        # Add special roles
+        # Add core special roles (toujours présents)
         roles_to_assign.append(Role.SEER)
         roles_to_assign.append(Role.WITCH)
         
+        # 🆕 Ajouter rôles investigatifs selon taille
         if special_roles >= 3:
-            roles_to_assign.append(Role.GUARD)
+            # Choisir aléatoirement Sheriff OU Investigator pour petites parties
+            investigation_role = random.choice([Role.SHERIFF, Role.INVESTIGATOR])
+            roles_to_assign.append(investigation_role)
+            
         if special_roles >= 4:
+            roles_to_assign.append(Role.GUARD)
+            
+        if special_roles >= 5:
             roles_to_assign.append(Role.HUNTER)
+            
+        if special_roles >= 6:
+            # Pour grandes parties, ajouter l'autre rôle investigatif
+            if Role.SHERIFF not in roles_to_assign:
+                roles_to_assign.append(Role.SHERIFF)
+            elif Role.INVESTIGATOR not in roles_to_assign:
+                roles_to_assign.append(Role.INVESTIGATOR)
         
         # Fill remaining with villagers
         while len(roles_to_assign) < player_count:
@@ -189,6 +222,8 @@ class GameEngine:
         for i, player_name in enumerate(player_names):
             game['players'][player_name]['role'] = roles_to_assign[i]
             print(f"DEBUG: Assigned {roles_to_assign[i].value} to {player_name}")
+            
+        print(f"🆕 CHAPITRE 2: Distribution finale - {[r.value for r in roles_to_assign]}")
     
     def get_game_state(self, game_id):
         """Get current game state"""
@@ -363,6 +398,34 @@ class GameEngine:
                 return True, f"Vous avez empoisonné {target}. Cette personne mourra à l'aube."
             else:
                 return False, "Potion already used"
+        
+        # 🆕 CHAPITRE 2 - ACTIONS INVESTIGATIVES
+        elif player['role'] == Role.SHERIFF and action == 'investigate':
+            # Vérifier si le Sheriff a déjà utilisé son action cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+            
+            if target and target in game['players'] and game['players'][target]['alive']:
+                success, message = self.perform_sheriff_investigation(game_id, player_name, target)
+                if success:
+                    player['night_action_used'] = True
+                return success, message
+            else:
+                return False, "Cible invalide pour l'investigation"
+        
+        elif player['role'] == Role.INVESTIGATOR and action == 'investigate':
+            # Vérifier si l'Investigator a déjà utilisé son action cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+            
+            if target and target in game['players'] and game['players'][target]['alive']:
+                success, message = self.perform_investigator_investigation(game_id, player_name, target)
+                if success:
+                    player['night_action_used'] = True
+                return success, message
+            else:
+                return False, "Cible invalide pour l'investigation"
+        
         else:
             return False, "Invalid action for role"
     
@@ -844,6 +907,25 @@ class GameEngine:
                     })
                 
                 actions.extend(witch_actions)
+            
+            # 🆕 CHAPITRE 2 - ACTIONS INVESTIGATIVES
+            elif player['role'] == Role.SHERIFF and not player.get('night_action_used', False):
+                # Sheriff peut investiguer n'importe qui d'autre
+                if alive_others:
+                    actions.append({
+                        'type': 'investigate',
+                        'description': 'Investiguer un suspect (Résultat: Suspect/Non Suspect)',
+                        'targets': alive_others
+                    })
+            
+            elif player['role'] == Role.INVESTIGATOR and not player.get('night_action_used', False):
+                # Investigator peut investiguer n'importe qui d'autre
+                if alive_others:
+                    actions.append({
+                        'type': 'investigate',
+                        'description': 'Analyser un joueur (Indices sur le type de rôle)',
+                        'targets': alive_others
+                    })
         
         elif game['phase'] == Phase.DAY:
             # Check if we're in the voting period (last 40 seconds)
@@ -1596,6 +1678,181 @@ class GameEngine:
                 revealed_notes.append(note_data)
         
         return revealed_notes
+    
+    # 🆕 ==================== SYSTÈME D'INVESTIGATION ====================
+    
+    def _get_sheriff_result(self, investigator_role, target_role):
+        """Détermine le résultat d'investigation du Sheriff"""
+        # Rôles suspects (Evil/Mafia)
+        suspicious_roles = [Role.WEREWOLF]  # À étendre avec Mafia, Serial Killer, etc.
+        
+        # Rôles immunisés (comme Godfather dans SC2 Mafia)
+        immune_roles = []  # À étendre avec Godfather quand implémenté
+        
+        if target_role in immune_roles:
+            return SheriffResult.NOT_SUSPICIOUS  # Immunité
+        elif target_role in suspicious_roles:
+            return SheriffResult.SUSPICIOUS
+        else:
+            return SheriffResult.NOT_SUSPICIOUS
+    
+    def _get_investigator_group(self, target_role):
+        """Détermine le groupe d'investigation pour l'Investigator"""
+        # Mapping rôles vers groupes d'investigation
+        role_groups = {
+            Role.GUARD: InvestigationGroup.PROTECTORS,
+            Role.SHERIFF: InvestigationGroup.INVESTIGATORS,
+            Role.INVESTIGATOR: InvestigationGroup.INVESTIGATORS,
+            Role.SEER: InvestigationGroup.INVESTIGATORS,
+            Role.WEREWOLF: InvestigationGroup.KILLERS,
+            Role.HUNTER: InvestigationGroup.KILLERS,
+            Role.VILLAGER: InvestigationGroup.SUPPORT,
+            Role.WITCH: InvestigationGroup.WITCHES
+        }
+        
+        return role_groups.get(target_role, InvestigationGroup.SUPPORT)
+    
+    def _get_investigation_group_message(self, group):
+        """Retourne le message d'investigation pour un groupe"""
+        group_messages = {
+            InvestigationGroup.PROTECTORS: "Votre cible pourrait être un Bodyguard, Lookout ou Spy.",
+            InvestigationGroup.INVESTIGATORS: "Votre cible pourrait être un Sheriff, Investigator ou Detective.",
+            InvestigationGroup.KILLERS: "Votre cible pourrait être un Vigilante, Veteran ou Werewolf.",
+            InvestigationGroup.SUPPORT: "Votre cible pourrait être un Citizen, Mayor ou Mason.",
+            InvestigationGroup.WITCHES: "Votre cible pourrait être une Witch ou Witch Doctor.",
+            InvestigationGroup.NEUTRALS: "Votre cible pourrait être un Survivor, Amnesiac ou Judge."
+        }
+        
+        return group_messages.get(group, "Votre cible a un rôle indéterminé.")
+    
+    def perform_sheriff_investigation(self, game_id, sheriff_name, target_name):
+        """Effectue une investigation Sheriff"""
+        if game_id not in self.games:
+            return False, "Game not found"
+        
+        game = self.games[game_id]
+        
+        if sheriff_name not in game['players']:
+            return False, "Sheriff not found"
+        
+        sheriff = game['players'][sheriff_name]
+        
+        # Vérifications de base
+        if sheriff['role'] != Role.SHERIFF:
+            return False, "Seul le Sheriff peut faire des investigations"
+        
+        if not sheriff['alive']:
+            return False, "Les morts ne peuvent pas investiguer"
+        
+        if game['phase'] != Phase.NIGHT:
+            return False, "Les investigations se font la nuit"
+        
+        if target_name not in game['players']:
+            return False, "Cible non trouvée"
+        
+        target = game['players'][target_name]
+        
+        if not target['alive']:
+            return False, "Impossible d'investiguer un mort"
+        
+        if target_name == sheriff_name:
+            return False, "Vous ne pouvez pas vous investiguer vous-même"
+        
+        # Effectuer l'investigation
+        result = self._get_sheriff_result(Role.SHERIFF, target['role'])
+        
+        # Stocker le résultat
+        if sheriff_name not in game['investigation_results']:
+            game['investigation_results'][sheriff_name] = []
+        
+        investigation_data = {
+            'investigator': sheriff_name,
+            'target': target_name,
+            'result': result.value,
+            'result_type': 'sheriff',
+            'night': game.get('day_count', 1),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        game['investigation_results'][sheriff_name].append(investigation_data)
+        game['investigation_history'].append(investigation_data)
+        
+        # Message pour le Sheriff
+        result_message = "SUSPECT" if result == SheriffResult.SUSPICIOUS else "NON SUSPECT"
+        
+        return True, f"Investigation terminée : {target_name} est {result_message}"
+    
+    def perform_investigator_investigation(self, game_id, investigator_name, target_name):
+        """Effectue une investigation Investigator"""
+        if game_id not in self.games:
+            return False, "Game not found"
+        
+        game = self.games[game_id]
+        
+        if investigator_name not in game['players']:
+            return False, "Investigator not found"
+        
+        investigator = game['players'][investigator_name]
+        
+        # Vérifications de base
+        if investigator['role'] != Role.INVESTIGATOR:
+            return False, "Seul l'Investigator peut faire des investigations détaillées"
+        
+        if not investigator['alive']:
+            return False, "Les morts ne peuvent pas investiguer"
+        
+        if game['phase'] != Phase.NIGHT:
+            return False, "Les investigations se font la nuit"
+        
+        if target_name not in game['players']:
+            return False, "Cible non trouvée"
+        
+        target = game['players'][target_name]
+        
+        if not target['alive']:
+            return False, "Impossible d'investiguer un mort"
+        
+        if target_name == investigator_name:
+            return False, "Vous ne pouvez pas vous investiguer vous-même"
+        
+        # Effectuer l'investigation
+        group = self._get_investigator_group(target['role'])
+        message = self._get_investigation_group_message(group)
+        
+        # Stocker le résultat
+        if investigator_name not in game['investigation_results']:
+            game['investigation_results'][investigator_name] = []
+        
+        investigation_data = {
+            'investigator': investigator_name,
+            'target': target_name,
+            'result': group.value,
+            'result_message': message,
+            'result_type': 'investigator',
+            'night': game.get('day_count', 1),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        game['investigation_results'][investigator_name].append(investigation_data)
+        game['investigation_history'].append(investigation_data)
+        
+        return True, f"Investigation terminée : {message}"
+    
+    def get_investigation_results(self, game_id, player_name):
+        """Récupère les résultats d'investigation d'un joueur"""
+        if game_id not in self.games:
+            return []
+        
+        game = self.games[game_id]
+        
+        return game['investigation_results'].get(player_name, [])
+    
+    def get_investigation_history(self, game_id):
+        """Récupère l'historique complet des investigations"""
+        if game_id not in self.games:
+            return []
+        
+        return game['investigation_history']
 
 # Global game engine instance
 game_engine = GameEngine() 

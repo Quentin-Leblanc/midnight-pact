@@ -34,8 +34,11 @@ import {
   Sword,
   Heart,
   Crosshair,
+  Search,
+  FileText,
 } from 'lucide-react';
 import './animations.css';
+import InvestigationPanel from './components/InvestigationPanel';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -134,6 +137,27 @@ const ROLE_DESCRIPTIONS = {
     color: 'text-orange-400',
     team: 'village',
     glowClass: '',
+  },
+  // 🆕 CHAPITRE 2 - RÔLES INVESTIGATIFS
+  sheriff: {
+    name: 'Sheriff',
+    description: 'Enquêteur expérimenté qui traque les criminels',
+    detailedDescription:
+      'Chaque nuit, vous pouvez enquêter sur un joueur pour déterminer s\'il est suspect ou non. Méfiez-vous des immunités !',
+    icon: Search,
+    color: 'text-indigo-400',
+    team: 'village',
+    glowClass: 'sheriff-glow',
+  },
+  investigator: {
+    name: 'Investigateur',
+    description: 'Analyste qui décèle les indices sur les rôles',
+    detailedDescription:
+      'Chaque nuit, vous pouvez analyser un joueur pour obtenir des indices sur son type de rôle. Vos rapports sont précieux pour le village.',
+    icon: FileText,
+    color: 'text-cyan-400',
+    team: 'village',
+    glowClass: 'investigator-glow',
   },
 };
 
@@ -746,6 +770,9 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
   // 🆕 États pour le système de procès
   const [trialInfo, setTrialInfo] = useState(null);
   const [showTrialPanel, setShowTrialPanel] = useState(false);
+  
+  // 🆕 États pour le système d'investigation (CHAPITRE 2)
+  const [showInvestigationPanel, setShowInvestigationPanel] = useState(false);
 
   useEffect(() => {
     fetchGameData();
@@ -1833,6 +1860,27 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
                   <p className="text-slate-300 text-sm mb-3">
                     {roleInfo.detailedDescription}
                   </p>
+                  
+                  {/* 🆕 CHAPITRE 2 - Bouton Investigation pour Sheriff et Investigator */}
+                  {(playerRole.role === 'sheriff' || playerRole.role === 'investigator') && (
+                    <div className="mt-4 pt-3 border-t border-slate-600">
+                      <Button
+                        onClick={() => setShowInvestigationPanel(true)}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center space-x-2"
+                        size="sm"
+                      >
+                        {playerRole.role === 'sheriff' ? (
+                          <Search className="w-4 h-4" />
+                        ) : (
+                          <FileText className="w-4 h-4" />
+                        )}
+                        <span>
+                          {playerRole.role === 'sheriff' ? 'Dossier Sheriff' : 'Rapport Investigateur'}
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+                  
                   {playerRole.role === 'werewolf' &&
                     playerRole.werewolf_team && (
                       <div className="text-red-400">
@@ -1970,6 +2018,17 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
           playerName={playerName}
           onTrialVote={handleTrialVote}
           trialInfo={trialInfo}
+        />
+      )}
+      
+      {/* 🆕 CHAPITRE 2 - Panel d'Investigation */}
+      {showInvestigationPanel && (
+        <InvestigationPanel
+          gameId={roomCode}
+          playerName={playerName}
+          playerRole={playerRole?.role}
+          isVisible={showInvestigationPanel}
+          onClose={() => setShowInvestigationPanel(false)}
         />
       )}
     </div>
