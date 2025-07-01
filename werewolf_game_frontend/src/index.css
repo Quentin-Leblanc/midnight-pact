@@ -1,4 +1,5 @@
 @import './animations.css';
+@import './performance-optimizations.css';
 
 @tailwind base;
 @tailwind components;

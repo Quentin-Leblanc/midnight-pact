@@ -421,6 +421,25 @@ def save_death_note_route(room_code):
         if not killer_name or not victim_name:
             return jsonify({'error': 'killer_name and victim_name required'}), 400
         
+        # 🐛 FIX BUG-006: Validation sécurité côté serveur
+        # Vérifier que le killer est bien autorisé à laisser des notes de mort
+        game_state = game_engine.get_game_state(room_code)
+        if not game_state:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        if killer_name not in game_state['players']:
+            return jsonify({'error': 'Killer not found in game'}), 400
+            
+        killer_player = game_state['players'][killer_name]
+        
+        # Validation: seuls les rôles tueurs peuvent laisser des notes
+        if not game_engine._can_leave_death_note(killer_player):
+            return jsonify({'error': 'Ce joueur ne peut pas laisser de notes de mort'}), 403
+            
+        # Validation: killer doit être vivant
+        if not killer_player['alive']:
+            return jsonify({'error': 'Les morts ne peuvent pas laisser de notes'}), 400
+        
         success, message = game_engine.save_death_note(room_code, killer_name, victim_name, death_note)
         
         if success:

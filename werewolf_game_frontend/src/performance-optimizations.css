@@ -1,0 +1,203 @@
+/* 🚀 OPTIMISATIONS PERFORMANCE - SPRINT 1.4 */
+
+/* 🐛 FIX BUG-003: Optimisation rendu chat sous charge */
+
+/* Utiliser GPU acceleration pour smooth scrolling */
+.chat-container {
+  transform: translateZ(0);
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Limiter animations simultanées pour performance */
+.chat-message {
+  animation-fill-mode: forwards;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Batching des updates DOM avec containment */
+.chat-messages-list {
+  contain: layout style paint;
+  overflow-anchor: auto;
+}
+
+/* Throttling animations avec reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .message-mafia,
+  .message-dead,
+  .message-private,
+  .message-spectral,
+  .message-secret {
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  .chat-mafia,
+  .chat-dead,
+  .chat-private {
+    animation: none !important;
+  }
+}
+
+/* Performance mode pour appareils bas de gamme */
+.performance-mode .will-reveal-message,
+.performance-mode .death-note-reveal-message {
+  animation-duration: 0.3s !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.performance-mode .spotlight-pulse,
+.performance-mode .accused-spotlight {
+  animation: none !important;
+  box-shadow: 0 0 10px rgba(255,215,0,0.3) !important;
+}
+
+/* Optimisation memory avec cleanup */
+.message-cleanup {
+  animation: messageCleanup 0.2s ease-out forwards;
+}
+
+@keyframes messageCleanup {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.95); display: none; }
+}
+
+/* Virtual scrolling helpers */
+.chat-virtual-item {
+  transform: translateZ(0);
+  contain: layout style paint;
+}
+
+.chat-scroll-area {
+  overflow-y: auto;
+  height: 400px;
+  scroll-behavior: smooth;
+}
+
+/* 🐛 FIX BUG-008: Amélioration boutons mobile */
+@media (max-width: 768px) {
+  .trial-vote-button {
+    min-height: 48px !important;
+    min-width: 48px !important;
+    font-size: 16px !important;
+    padding: 12px 24px !important;
+    margin: 8px 4px !important;
+  }
+  
+  .trial-verdict-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .trial-verdict-container .trial-vote-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* 🐛 FIX BUG-009: Testament mobile viewport fix */
+  .last-will-editor.mobile-editing {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.95);
+    padding: 20px;
+    overflow-y: auto;
+  }
+  
+  .last-will-editor.mobile-editing .will-textarea {
+    height: calc(50vh - 120px);
+    font-size: 16px; /* Empêche zoom auto iOS */
+  }
+  
+  .mobile-editing-toolbar {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 12px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 8px;
+  }
+  
+  .mobile-editing-toolbar button {
+    flex: 1;
+    min-height: 48px;
+  }
+}
+
+/* Optimisation animations concurrentes */
+.animation-queue {
+  animation-delay: calc(var(--queue-index) * 0.1s);
+}
+
+/* Limit concurrent heavy animations */
+@supports (animation-timeline: auto) {
+  .heavy-animation {
+    animation-timeline: auto;
+    animation-range: entry 0% exit 100%;
+  }
+}
+
+/* Performance monitoring helpers */
+.performance-debug {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  padding: 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  z-index: 10000;
+  font-family: monospace;
+}
+
+/* Chat performance optimizations */
+.chat-message-batch {
+  animation: batchSlideIn 0.3s ease-out;
+}
+
+@keyframes batchSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced paint complexity */
+.chat-message.simple-mode {
+  border-left: 3px solid currentColor;
+  background: transparent;
+  box-shadow: none;
+}
+
+.simple-mode .message-mafia { border-left-color: #ef4444; }
+.simple-mode .message-dead { border-left-color: #6b7280; }
+.simple-mode .message-private { border-left-color: #8b5cf6; }
+
+/* Memory efficient transforms */
+.gpu-optimized {
+  transform: translate3d(0,0,0);
+  -webkit-transform: translate3d(0,0,0);
+}
+
+/* Intersection observer optimizations */
+.message-visible {
+  transition: opacity 0.2s ease;
+}
+
+.message-hidden {
+  opacity: 0.5;
+  pointer-events: none;
+}

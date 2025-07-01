@@ -1040,14 +1040,19 @@ class GameEngine:
             # Procès avec défense et vote
             game['phase'] = Phase.TRIAL
             game['accused_player'] = player_name
-            game['phase_start_time'] = datetime.now()
+            
+            # 🐛 FIX BUG-001: Reset complet du timer à chaque nouveau procès
+            current_time = datetime.now()
+            game['phase_start_time'] = current_time
             game['phase_duration'] = game['trial_defense_time'] + game['trial_voting_time']
             game['day_voting_enabled'] = False  # Désactiver votes jour
             
-            # Reset trial votes
+            # Reset trial votes complètement
             game['trial_votes'] = {}
             for player in game['players'].values():
                 player['trial_vote'] = None
+                
+            print(f"Nouveau procès démarré contre {player_name} à {current_time.isoformat()}")
                 
             # Ajouter à l'historique
             game['trial_history'].append({
@@ -1199,6 +1204,12 @@ class GameEngine:
         if game['phase'] != Phase.TRIAL:
             return False, "Pas en phase de procès"
             
+        # 🐛 FIX BUG-010: Vérifier que le procès n'a pas expiré
+        if game.get('phase_start_time'):
+            elapsed_time = (datetime.now() - game['phase_start_time']).total_seconds()
+            if elapsed_time > game.get('phase_duration', 60):
+                return False, "Temps de procès expiré - vote non comptabilisé"
+            
         if player_name not in game['players']:
             return False, "Player not found"
             
@@ -1213,11 +1224,16 @@ class GameEngine:
         if verdict not in [TrialVerdict.GUILTY, TrialVerdict.INNOCENT]:
             return False, "Verdict invalide"
             
+        # Vérifier que le joueur n'a pas déjà voté
+        if player_name in game.get('trial_votes', {}):
+            return False, "Vous avez déjà voté"
+            
         # Enregistrer le vote
         player['trial_vote'] = verdict
         game['trial_votes'][player_name] = verdict
         
         verdict_fr = "COUPABLE" if verdict == TrialVerdict.GUILTY else "INNOCENT"
+        print(f"{player_name} a voté {verdict_fr} dans le procès")
         return True, f"Vous avez voté {verdict_fr}"
 
     def get_chat_messages(self, game_id, player_name):
@@ -1411,6 +1427,12 @@ class GameEngine:
     
     def reveal_will_on_death(self, game, player_name):
         """Révèle automatiquement le testament d'un joueur mort"""
+        # 🐛 FIX BUG-005: Vérifier si le testament a déjà été révélé
+        already_revealed = any(will['player'] == player_name for will in game['revealed_wills'])
+        if already_revealed:
+            print(f"Testament de {player_name} déjà révélé, skip duplication")
+            return False
+            
         will_data = self.get_player_will(game['id'], player_name)
         
         if will_data and will_data['content'].strip():
@@ -1439,6 +1461,7 @@ class GameEngine:
             
             game['chat_messages'].append(will_notification)
             
+            print(f"Testament de {player_name} révélé avec succès")
             return True
         
         return False

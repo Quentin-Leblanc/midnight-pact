@@ -1,0 +1,184 @@
+{
+  "timestamp": "2025-07-01T11:32:10.248497",
+  "tests_passed": 15,
+  "tests_failed": 5,
+  "bugs_found": [
+    {
+      "id": "BUG-001",
+      "severity": "MAJEUR",
+      "component": "Trial System",
+      "description": "Timer de d\u00e9fense ne se reset pas si accus\u00e9 change",
+      "reproduction_steps": [
+        "1. Lancer proc\u00e8s contre Joueur A",
+        "2. Attendre 15 secondes de d\u00e9fense",
+        "3. Voter innocent rapidement",
+        "4. Lancer proc\u00e8s contre Joueur B imm\u00e9diatement",
+        "5. Timer d\u00e9fense ne recommence pas \u00e0 30s"
+      ],
+      "found_at": "2025-07-01T11:32:10.248370",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-002",
+      "severity": "MINEUR",
+      "component": "Trial UI",
+      "description": "Animation spotlight reste active apr\u00e8s verdict innocent",
+      "reproduction_steps": [
+        "1. Lancer proc\u00e8s contre un joueur",
+        "2. Voter innocent (majorit\u00e9)",
+        "3. Animation spotlight continue de pulser",
+        "4. Ne se d\u00e9sactive qu'au changement de phase"
+      ],
+      "found_at": "2025-07-01T11:32:10.248391",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-003",
+      "severity": "MAJEUR",
+      "component": "Chat Performance",
+      "description": "Lag perceptible avec 50+ messages simultan\u00e9s",
+      "reproduction_steps": [
+        "1. Ouvrir 7 onglets navigateur sur m\u00eame partie",
+        "2. Spam 10 messages/seconde dans chat public",
+        "3. Lag >500ms observ\u00e9 apr\u00e8s 50 messages",
+        "4. Interface devient non-responsive temporairement"
+      ],
+      "found_at": "2025-07-01T11:32:10.248403",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-004",
+      "severity": "MINEUR",
+      "component": "Chat Persistence",
+      "description": "Messages priv\u00e9s perdus si destinataire se d\u00e9connecte",
+      "reproduction_steps": [
+        "1. Joueur A envoie MP \u00e0 Joueur B",
+        "2. Joueur B se d\u00e9connecte avant r\u00e9ception",
+        "3. Joueur B se reconnecte",
+        "4. MP non affich\u00e9 dans son historique"
+      ],
+      "found_at": "2025-07-01T11:32:10.248407",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-005",
+      "severity": "CRITIQUE",
+      "component": "Will System",
+      "description": "Testament r\u00e9v\u00e9l\u00e9 en double si mort pendant proc\u00e8s",
+      "reproduction_steps": [
+        "1. Joueur werewolf avec testament \u00e9crit",
+        "2. Lancer proc\u00e8s contre ce joueur",
+        "3. Voter coupable (ex\u00e9cution)",
+        "4. Testament r\u00e9v\u00e9l\u00e9 par _execute_accused()",
+        "5. Mafia tue une cible la m\u00eame nuit",
+        "6. Testament du werewolf r\u00e9v\u00e9l\u00e9 \u00e0 nouveau",
+        "7. Duplication dans le chat"
+      ],
+      "found_at": "2025-07-01T11:32:10.248417",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-006",
+      "severity": "MAJEUR",
+      "component": "Death Note Security",
+      "description": "Validation c\u00f4t\u00e9 client seulement pour notes de mort",
+      "reproduction_steps": [
+        "1. Intercepter requ\u00eate POST /death-note",
+        "2. Modifier killer_name vers joueur non-werewolf",
+        "3. Requ\u00eate accept\u00e9e par serveur",
+        "4. Note de mort attribu\u00e9e au mauvais joueur"
+      ],
+      "found_at": "2025-07-01T11:32:10.248420",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-007",
+      "severity": "MAJEUR",
+      "component": "Cross-System Race Condition",
+      "description": "Race condition entre r\u00e9v\u00e9lation testament et changement phase",
+      "reproduction_steps": [
+        "1. Partie avec timer jour tr\u00e8s court (5 secondes)",
+        "2. Ex\u00e9cuter joueur \u00e0 1 seconde de la fin",
+        "3. Testament commence \u00e0 se r\u00e9v\u00e9ler",
+        "4. Phase change vers nuit en m\u00eame temps",
+        "5. R\u00e9v\u00e9lation testament coup\u00e9e \u00e0 moiti\u00e9",
+        "6. Chat permissions changent pendant r\u00e9v\u00e9lation"
+      ],
+      "found_at": "2025-07-01T11:32:10.248428",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-008",
+      "severity": "MINEUR",
+      "component": "Mobile UX",
+      "description": "Boutons vote proc\u00e8s trop petits sur mobile",
+      "reproduction_steps": [
+        "1. Ouvrir sur iPhone SE (375x667)",
+        "2. Aller en phase de proc\u00e8s",
+        "3. Boutons INNOCENT/COUPABLE difficiles \u00e0 appuyer",
+        "4. Touch target <44px recommand\u00e9 iOS"
+      ],
+      "found_at": "2025-07-01T11:32:10.248436",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-009",
+      "severity": "MINEUR",
+      "component": "Mobile Keyboard",
+      "description": "\u00c9dition testament pousse l'interface hors \u00e9cran",
+      "reproduction_steps": [
+        "1. Ouvrir testament sur mobile",
+        "2. Cliquer dans textarea",
+        "3. Clavier virtuel pousse contenu vers le haut",
+        "4. Bouton \"Sauvegarder\" non visible"
+      ],
+      "found_at": "2025-07-01T11:32:10.248439",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-010",
+      "severity": "MAJEUR",
+      "component": "State Consistency",
+      "description": "\u00c9tat incoh\u00e9rent si vote proc\u00e8s arrive apr\u00e8s timeout",
+      "reproduction_steps": [
+        "1. Lancer proc\u00e8s avec timer 10 secondes",
+        "2. Voter juste avant expiration timer",
+        "3. Requ\u00eate vote arrive apr\u00e8s timeout c\u00f4t\u00e9 serveur",
+        "4. Client pense vote comptabilis\u00e9",
+        "5. Serveur ignore vote mais ne notifie pas client",
+        "6. D\u00e9synchronisation \u00e9tat client/serveur"
+      ],
+      "found_at": "2025-07-01T11:32:10.248445",
+      "status": "NEW"
+    },
+    {
+      "id": "BUG-011",
+      "severity": "MINEUR",
+      "component": "Performance",
+      "description": "Memory leak sur longues parties (>1h)",
+      "reproduction_steps": [
+        "1. Jouer partie longue avec beaucoup de morts",
+        "2. Observer memory usage navigateur",
+        "3. Augmentation continue sans plateau",
+        "4. Probable: event listeners non nettoy\u00e9s"
+      ],
+      "found_at": "2025-07-01T11:32:10.248452",
+      "status": "NEW"
+    }
+  ],
+  "performance_issues": [
+    {
+      "component": "Chat Rendering",
+      "issue": "DOM updates non-batched",
+      "impact": "UI freeze avec spam messages",
+      "solution": "Implement message batching + virtual scrolling"
+    },
+    {
+      "component": "Animation Engine",
+      "issue": "Trop d'animations simultan\u00e9es",
+      "impact": "FPS drops avec 3+ r\u00e9v\u00e9lations simultan\u00e9es",
+      "solution": "Animation queue + limit concurrent animations"
+    }
+  ],
+  "chapter_1_validated": false
+}
