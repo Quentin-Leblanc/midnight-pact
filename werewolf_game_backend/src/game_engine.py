@@ -575,6 +575,9 @@ class GameEngine:
                 game['phase_duration'] = 60  # 60 seconds for night phase
                 game['transition_type'] = None
                 
+                # 🆕 PHASE 2 - Nettoyer la liste des joueurs blackmailés (effet terminé)
+                game['blackmailed_players'] = []
+                
                 # Reset night actions and votes
                 game['night_actions'] = {}
                 game['votes'] = {}
@@ -918,7 +921,7 @@ class GameEngine:
         player = game['players'][player_name]
         
         # Vérifier les permissions de chat selon la phase et le canal
-        if not self._can_send_message(game, player, channel):
+        if not self._can_send_message(game, player, channel, player_name):
             return False, "Chat non autorisé dans ce canal"
         
         chat_message = {
@@ -945,20 +948,25 @@ class GameEngine:
         
         return True, "Message ajouté"
     
-    def _can_send_message(self, game, player, channel):
-        """Vérifie si un joueur peut envoyer un message dans un canal"""
+    def _can_send_message(self, game, player, channel, player_name):
+        """🆕 PHASE 2 - Vérifie si un joueur peut envoyer un message (avec système blackmail)"""
         player_role = player['role']
         player_alive = player['alive']
         current_phase = game['phase']
         
         if channel == ChatChannel.PUBLIC:
+            # 🆕 Vérifier si le joueur est blackmailé
+            if player_name and player_name in game.get('blackmailed_players', []):
+                return False  # Les joueurs blackmailés ne peuvent pas parler
+                
             # Chat public : seulement pendant le jour et si vivant
             return current_phase in [Phase.DAY, Phase.VOTING, Phase.TRIAL] and player_alive
             
         elif channel == ChatChannel.MAFIA:
-            # Chat mafia : seulement la nuit, si mafia et vivant
+            # 🆕 Chat mafia : étendu à tous les rôles Mafia
+            mafia_roles = [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]
             return (current_phase == Phase.NIGHT and 
-                   player_role == Role.WEREWOLF and 
+                   player_role in mafia_roles and 
                    player_alive and 
                    game.get('night_chat_enabled', True))
             
@@ -972,7 +980,7 @@ class GameEngine:
             return not player_alive
             
         elif channel == ChatChannel.PRIVATE:
-            # Messages privés : toujours autorisés si vivant
+            # Messages privés : toujours autorisés si vivant (même si blackmailé)
             return player_alive
             
         return False
@@ -1682,7 +1690,7 @@ class GameEngine:
         channels = []
         
         # Canal public
-        if self._can_send_message(game, player, ChatChannel.PUBLIC):
+        if self._can_send_message(game, player, ChatChannel.PUBLIC, player_name):
             channels.append({
                 'id': 'public',
                 'name': 'Village',
@@ -1691,16 +1699,16 @@ class GameEngine:
             })
         
         # Canal mafia
-        if self._can_send_message(game, player, ChatChannel.MAFIA):
+        if self._can_send_message(game, player, ChatChannel.MAFIA, player_name):
             channels.append({
                 'id': 'mafia',
-                'name': 'Meute',
-                'description': 'Chat privé des loups-garous',
+                'name': 'Famille',
+                'description': 'Chat privé de la Mafia',
                 'color': '#ef4444'
             })
         
         # Canal des morts
-        if self._can_send_message(game, player, ChatChannel.DEAD):
+        if self._can_send_message(game, player, ChatChannel.DEAD, player_name):
             channels.append({
                 'id': 'dead',
                 'name': 'Outre-tombe',
@@ -1709,7 +1717,7 @@ class GameEngine:
             })
         
         # Messages privés
-        if self._can_send_message(game, player, ChatChannel.PRIVATE):
+        if self._can_send_message(game, player, ChatChannel.PRIVATE, player_name):
             channels.append({
                 'id': 'private',
                 'name': 'Messages Privés',
@@ -1952,45 +1960,53 @@ class GameEngine:
     # 🆕 ==================== SYSTÈME D'INVESTIGATION ====================
     
     def _get_sheriff_result(self, investigator_role, target_role):
-        """Détermine le résultat d'investigation du Sheriff"""
-        # Rôles suspects (Evil/Mafia)
-        suspicious_roles = [Role.WEREWOLF]  # À étendre avec Mafia, Serial Killer, etc.
+        """🆕 PHASE 2 - Détermine le résultat d'investigation du Sheriff (avec immunités Mafia)"""
+        # 🆕 Rôles suspects (Evil/Mafia)
+        suspicious_roles = [Role.WEREWOLF, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]
         
-        # Rôles immunisés (comme Godfather dans SC2 Mafia)
-        immune_roles = []  # À étendre avec Godfather quand implémenté
+        # 🆕 Rôles immunisés (Godfather a immunité Sheriff dans SC2 Mafia)
+        immune_roles = [Role.GODFATHER]
         
         if target_role in immune_roles:
-            return SheriffResult.NOT_SUSPICIOUS  # Immunité
+            return SheriffResult.NOT_SUSPICIOUS  # Immunité Godfather
         elif target_role in suspicious_roles:
             return SheriffResult.SUSPICIOUS
         else:
             return SheriffResult.NOT_SUSPICIOUS
     
     def _get_investigator_group(self, target_role):
-        """Détermine le groupe d'investigation pour l'Investigator"""
+        """🆕 PHASE 2 - Détermine le groupe d'investigation pour l'Investigator (avec rôles Mafia)"""
         # Mapping rôles vers groupes d'investigation
         role_groups = {
+            # Town Roles
             Role.GUARD: InvestigationGroup.PROTECTORS,
             Role.SHERIFF: InvestigationGroup.INVESTIGATORS,
             Role.INVESTIGATOR: InvestigationGroup.INVESTIGATORS,
             Role.SEER: InvestigationGroup.INVESTIGATORS,
-            Role.WEREWOLF: InvestigationGroup.KILLERS,
             Role.HUNTER: InvestigationGroup.KILLERS,
             Role.VILLAGER: InvestigationGroup.SUPPORT,
-            Role.WITCH: InvestigationGroup.WITCHES
+            Role.WITCH: InvestigationGroup.WITCHES,
+            
+            # 🆕 Mafia Roles - Tous dans le groupe MAFIA pour les cacher
+            Role.WEREWOLF: InvestigationGroup.MAFIA,
+            Role.GODFATHER: InvestigationGroup.MAFIA,
+            Role.MAFIOSO: InvestigationGroup.MAFIA,
+            Role.BLACKMAILER: InvestigationGroup.MAFIA,
+            Role.CONSIGLIERE: InvestigationGroup.MAFIA
         }
         
         return role_groups.get(target_role, InvestigationGroup.SUPPORT)
     
     def _get_investigation_group_message(self, group):
-        """Retourne le message d'investigation pour un groupe"""
+        """🆕 PHASE 2 - Retourne le message d'investigation pour un groupe (avec groupe Mafia)"""
         group_messages = {
             InvestigationGroup.PROTECTORS: "Votre cible pourrait être un Bodyguard, Lookout ou Spy.",
             InvestigationGroup.INVESTIGATORS: "Votre cible pourrait être un Sheriff, Investigator ou Detective.",
             InvestigationGroup.KILLERS: "Votre cible pourrait être un Vigilante, Veteran ou Werewolf.",
             InvestigationGroup.SUPPORT: "Votre cible pourrait être un Citizen, Mayor ou Mason.",
             InvestigationGroup.WITCHES: "Votre cible pourrait être une Witch ou Witch Doctor.",
-            InvestigationGroup.NEUTRALS: "Votre cible pourrait être un Survivor, Amnesiac ou Judge."
+            InvestigationGroup.NEUTRALS: "Votre cible pourrait être un Survivor, Amnesiac ou Judge.",
+            InvestigationGroup.MAFIA: "Votre cible pourrait être un Godfather, Mafioso ou Consigliere."
         }
         
         return group_messages.get(group, "Votre cible a un rôle indéterminé.")
