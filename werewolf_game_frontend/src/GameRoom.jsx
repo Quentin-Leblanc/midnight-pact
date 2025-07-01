@@ -196,7 +196,7 @@ const PHASE_INFO = {
   },
 };
 
-// Chat flottant permanent
+// 🆕 Chat Multi-Canaux avec Support Nocturne
 const FloatingChat = ({
   chatMessages,
   newMessage,
@@ -206,54 +206,202 @@ const FloatingChat = ({
   playerColors,
   gamePhase,
   playerAlive,
+  roomCode,
 }) => {
+  const [activeChannel, setActiveChannel] = useState('public');
+  const [availableChannels, setAvailableChannels] = useState([]);
+  const [allMessages, setAllMessages] = useState({});
+  const [selectedRecipient, setSelectedRecipient] = useState('');
+  const [alivePlayersForPM, setAlivePlayersForPM] = useState([]);
   const chatEndRef = useRef(null);
+
+  // Récupérer les canaux et messages disponibles
+  useEffect(() => {
+    if (roomCode && playerName) {
+      fetchAvailableChannels();
+      fetchAllMessages();
+    }
+  }, [roomCode, playerName, gamePhase]);
+
+  const fetchAvailableChannels = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/${roomCode}/chat-channels?player_name=${playerName}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableChannels(data.channels || []);
+        
+        // Si le canal actuel n'est plus disponible, changer au premier disponible
+        if (data.channels.length > 0 && !data.channels.some(ch => ch.id === activeChannel)) {
+          setActiveChannel(data.channels[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur récupération canaux:', error);
+    }
+  };
+
+  const fetchAllMessages = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/${roomCode}/chat-messages?player_name=${playerName}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAllMessages(data.messages || {});
+      }
+    } catch (error) {
+      console.error('Erreur récupération messages:', error);
+    }
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  }, [allMessages, activeChannel]);
 
-  // Désactiver le chat pendant la nuit ou si le joueur est mort
-  const canChat = gamePhase !== 'night' && playerAlive;
+  const sendChannelMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    try {
+      let response;
+      
+      if (activeChannel === 'private' && selectedRecipient) {
+        // Message privé
+        response = await fetch(`${API_BASE_URL}/games/${roomCode}/private-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender: playerName,
+            recipient: selectedRecipient,
+            message: newMessage.trim()
+          })
+        });
+      } else {
+        // Message dans un canal
+        response = await fetch(`${API_BASE_URL}/games/${roomCode}/chat/${activeChannel}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player_name: playerName,
+            message: newMessage.trim()
+          })
+        });
+      }
+
+      if (response.ok) {
+        setNewMessage('');
+        // Rafraîchir les messages
+        setTimeout(() => fetchAllMessages(), 200);
+      }
+    } catch (error) {
+      console.error('Erreur envoi message:', error);
+    }
+  };
+
+  // Obtenir les messages du canal actif (inclut fallback vers chatMessages legacy)
+  const getCurrentMessages = () => {
+    if (activeChannel === 'public' && (!allMessages.public || allMessages.public.length === 0)) {
+      // Fallback vers les anciens messages publics
+      return chatMessages || [];
+    }
+    return allMessages[activeChannel] || [];
+  };
+
+  // Canal actif info
+  const activeChannelInfo = availableChannels.find(ch => ch.id === activeChannel) || {
+    id: 'public',
+    name: 'Village',
+    color: '#3b82f6'
+  };
+
+  // Vérifier si on peut chatter dans le canal actuel
+  const canChat = availableChannels.some(ch => ch.id === activeChannel);
 
   return (
-    <div className="fixed bottom-4 left-4 w-[40rem] h-96 bg-slate-800/95 border border-slate-600 rounded-lg backdrop-blur-md z-50 shadow-2xl">
-      <div className="flex items-center justify-between p-3 border-b border-slate-600">
-        <div className="flex items-center space-x-2">
-          <MessageCircle className="w-4 h-4 text-blue-400" />
-          <span className="text-white font-medium text-sm">
-            Chat du Village
-          </span>
-        </div>
-        {!canChat && (
-          <Badge variant="secondary" className="text-xs">
-            {gamePhase === 'night' ? 'Nuit' : 'Silencieux'}
+    <div className="fixed bottom-4 left-4 w-[42rem] h-[28rem] bg-slate-800/95 border border-slate-600 rounded-lg backdrop-blur-md z-50 shadow-2xl">
+      {/* Header avec onglets de canaux */}
+      <div className="border-b border-slate-600">
+        <div className="flex items-center justify-between p-3 border-b border-slate-700">
+          <div className="flex items-center space-x-2">
+            <MessageCircle 
+              className="w-4 h-4" 
+              style={{ color: activeChannelInfo.color }}
+            />
+            <span className="text-white font-medium text-sm">
+              {activeChannelInfo.name}
+            </span>
+          </div>
+          <Badge 
+            variant="secondary" 
+            className="text-xs"
+            style={{ backgroundColor: activeChannelInfo.color + '20', color: activeChannelInfo.color }}
+          >
+            {gamePhase}
           </Badge>
-        )}
+        </div>
+        
+        {/* Onglets des canaux */}
+        <div className="flex overflow-x-auto">
+          {availableChannels.map((channel) => (
+            <button
+              key={channel.id}
+              onClick={() => setActiveChannel(channel.id)}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                activeChannel === channel.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-slate-400 hover:text-white'
+              }`}
+            >
+              <span
+                className="w-2 h-2 rounded-full inline-block mr-2"
+                style={{ backgroundColor: channel.color }}
+              />
+              {channel.name}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Zone des messages */}
       <ScrollArea className="h-64 p-3">
-        {chatMessages.length === 0 ? (
+        {getCurrentMessages().length === 0 ? (
           <p className="text-slate-400 text-center text-sm">
-            Le village est silencieux...
+            {activeChannel === 'mafia' ? 'La meute se concerte...' :
+             activeChannel === 'dead' ? 'Les esprits murmurent...' :
+             activeChannel === 'private' ? 'Aucune conversation secrète...' :
+             'Le village est silencieux...'}
           </p>
         ) : (
           <div className="space-y-2">
-            {chatMessages.map((msg, index) => {
-              const playerName = msg.player || msg.player_name || 'Joueur';
+            {getCurrentMessages().map((msg, index) => {
+              const msgPlayerName = msg.player || msg.player_name || msg.sender || 'Joueur';
               const message = msg.message || '';
+              const isSystemMessage = msgPlayerName === 'SYSTEM';
+              const isPrivateMessage = msg.channel === 'private';
+              
               return (
                 <div
-                  key={`chat-${index}-${msg.timestamp || Date.now()}`}
-                  className="text-sm"
+                  key={`chat-${activeChannel}-${index}-${msg.timestamp || Date.now()}`}
+                  className={`text-sm ${isSystemMessage ? 'opacity-75 italic' : ''}`}
                 >
-                  <span
-                    className="font-medium"
-                    style={{ color: playerColors[playerName] || '#94a3b8' }}
-                  >
-                    {playerName}:
-                  </span>
-                  <span className="text-white ml-2">{message}</span>
+                  {isPrivateMessage && msg.recipient ? (
+                    // Format spécial pour MP
+                    <div className="bg-purple-900/20 border border-purple-600/30 rounded p-2">
+                      <div className="text-xs text-purple-400 mb-1">
+                        De: {msg.sender} → À: {msg.recipient}
+                      </div>
+                      <span className="text-white">{message}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span
+                        className="font-medium"
+                        style={{ 
+                          color: isSystemMessage ? '#fbbf24' : playerColors[msgPlayerName] || '#94a3b8' 
+                        }}
+                      >
+                        {msgPlayerName}:
+                      </span>
+                      <span className="text-white ml-2">{message}</span>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -262,34 +410,52 @@ const FloatingChat = ({
         )}
       </ScrollArea>
 
-      <div
-        className={`p-3 border-t border-slate-600 ${
-          !canChat ? 'opacity-50' : ''
-        }`}
-      >
+      {/* Zone de saisie */}
+      <div className={`p-3 border-t border-slate-600 ${!canChat ? 'opacity-50' : ''}`}>
+        {/* Sélecteur de destinataire pour MP */}
+        {activeChannel === 'private' && (
+          <div className="mb-2">
+            <select
+              value={selectedRecipient}
+              onChange={(e) => setSelectedRecipient(e.target.value)}
+              className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded px-2 py-1"
+            >
+              <option value="">Choisir un destinataire...</option>
+              {/* TODO: Récupérer liste des joueurs vivants */}
+            </select>
+          </div>
+        )}
+        
         {!canChat && (
           <p className="text-slate-400 text-xs mb-2 text-center">
-            {gamePhase === 'night'
-              ? 'Le chat est désactivé pendant la nuit'
-              : 'Vous ne pouvez plus parler'}
+            {activeChannel === 'public' && gamePhase === 'night' 
+              ? 'Le chat public est fermé la nuit'
+              : 'Vous ne pouvez pas écrire dans ce canal'}
           </p>
         )}
+        
         <div className="flex space-x-2">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={canChat ? 'Tapez votre message...' : 'Chat désactivé'}
+            placeholder={
+              activeChannel === 'private' && !selectedRecipient 
+                ? 'Choisissez un destinataire...'
+                : canChat 
+                ? `Message ${activeChannelInfo.name}...` 
+                : 'Chat indisponible'
+            }
             className="bg-slate-700/50 border-slate-600 text-white text-sm"
             onKeyPress={(e) =>
-              e.key === 'Enter' && canChat && sendChatMessage()
+              e.key === 'Enter' && canChat && sendChannelMessage()
             }
-            disabled={!canChat}
+            disabled={!canChat || (activeChannel === 'private' && !selectedRecipient)}
           />
           <Button
-            onClick={sendChatMessage}
+            onClick={sendChannelMessage}
             size="sm"
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={!canChat}
+            disabled={!canChat || (activeChannel === 'private' && !selectedRecipient)}
           >
             <Send className="w-3 h-3" />
           </Button>
@@ -1406,7 +1572,7 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
         </div>
       )}
 
-      {/* Chat flottant permanent */}
+      {/* Chat flottant multi-canaux */}
       <FloatingChat
         chatMessages={chatMessages}
         newMessage={newMessage}
@@ -1416,6 +1582,7 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
         playerColors={playerColors}
         gamePhase={gameState?.phase}
         playerAlive={playerRole?.alive !== false}
+        roomCode={roomCode}
       />
 
       <div className="relative z-10 p-4">

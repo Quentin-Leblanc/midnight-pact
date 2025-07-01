@@ -30,6 +30,13 @@ class TrialVerdict(Enum):
     INNOCENT = "innocent"
     GUILTY = "guilty"
 
+class ChatChannel(Enum):
+    PUBLIC = "public"           # Chat visible par tous
+    MAFIA = "mafia"            # Chat privé des mafia
+    TRIAD = "triad"            # Chat privé des triad  
+    DEAD = "dead"              # Chat des morts
+    PRIVATE = "private"        # Messages privés
+
 class GameEngine:
     def __init__(self):
         self.games = {}
@@ -52,6 +59,11 @@ class GameEngine:
             'eliminated_players': [],
             'winner': None,
             'chat_messages': [],
+            'mafia_chat': [],               # 🆕 Chat nocturne mafia
+            'triad_chat': [],               # 🆕 Chat nocturne triad
+            'dead_chat': [],                # 🆕 Chat des morts
+            'private_messages': [],         # 🆕 Messages privés
+            'night_chat_enabled': True,     # 🆕 Chat nocturne activé
             'last_elimination': None,
             'phase_history': [],
             'game_history': [],
@@ -669,8 +681,8 @@ class GameEngine:
         
         return False
     
-    def add_chat_message(self, game_id, player_name, message):
-        """Add a chat message"""
+    def add_chat_message(self, game_id, player_name, message, channel=ChatChannel.PUBLIC):
+        """Add a chat message to the appropriate channel"""
         if game_id not in self.games:
             return False, "Game not found"
         
@@ -679,19 +691,67 @@ class GameEngine:
         if player_name not in game['players']:
             return False, "Player not found"
         
-        # Permettre le chat pendant toutes les phases
+        player = game['players'][player_name]
+        
+        # Vérifier les permissions de chat selon la phase et le canal
+        if not self._can_send_message(game, player, channel):
+            return False, "Chat non autorisé dans ce canal"
+        
         chat_message = {
             'player': player_name,
-            'player_name': player_name,  # Ajout pour la compatibilité frontend
+            'player_name': player_name,
             'message': message,
             'timestamp': datetime.now().isoformat(),
             'day': game.get('day_count', 0),
-            'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase']
+            'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase'],
+            'channel': channel.value if isinstance(channel, ChatChannel) else channel
         }
         
-        game['chat_messages'].append(chat_message)
+        # Ajouter au bon canal
+        if channel == ChatChannel.PUBLIC:
+            game['chat_messages'].append(chat_message)
+        elif channel == ChatChannel.MAFIA:
+            game['mafia_chat'].append(chat_message)
+        elif channel == ChatChannel.TRIAD:
+            game['triad_chat'].append(chat_message)
+        elif channel == ChatChannel.DEAD:
+            game['dead_chat'].append(chat_message)
+        elif channel == ChatChannel.PRIVATE:
+            game['private_messages'].append(chat_message)
         
-        return True, "Message added"
+        return True, "Message ajouté"
+    
+    def _can_send_message(self, game, player, channel):
+        """Vérifie si un joueur peut envoyer un message dans un canal"""
+        player_role = player['role']
+        player_alive = player['alive']
+        current_phase = game['phase']
+        
+        if channel == ChatChannel.PUBLIC:
+            # Chat public : seulement pendant le jour et si vivant
+            return current_phase in [Phase.DAY, Phase.VOTING, Phase.TRIAL] and player_alive
+            
+        elif channel == ChatChannel.MAFIA:
+            # Chat mafia : seulement la nuit, si mafia et vivant
+            return (current_phase == Phase.NIGHT and 
+                   player_role == Role.WEREWOLF and 
+                   player_alive and 
+                   game.get('night_chat_enabled', True))
+            
+        elif channel == ChatChannel.TRIAD:
+            # Chat triad : seulement la nuit, si triad et vivant
+            # Note: Pas de rôles triad implémentés encore
+            return False
+            
+        elif channel == ChatChannel.DEAD:
+            # Chat des morts : seulement si mort
+            return not player_alive
+            
+        elif channel == ChatChannel.PRIVATE:
+            # Messages privés : toujours autorisés si vivant
+            return player_alive
+            
+        return False
     
     def get_available_actions(self, game_id, player_name):
         """Get available actions for a player based on their role and game phase"""
@@ -1139,6 +1199,137 @@ class GameEngine:
         
         verdict_fr = "COUPABLE" if verdict == TrialVerdict.GUILTY else "INNOCENT"
         return True, f"Vous avez voté {verdict_fr}"
+
+    def get_chat_messages(self, game_id, player_name):
+        """Récupère tous les messages de chat accessibles au joueur"""
+        if game_id not in self.games:
+            return {}
+        
+        game = self.games[game_id]
+        
+        if player_name not in game['players']:
+            return {}
+        
+        player = game['players'][player_name]
+        accessible_messages = {}
+        
+        # Chat public - toujours accessible
+        accessible_messages['public'] = game['chat_messages']
+        
+        # Chat mafia - seulement si mafia
+        if player['role'] == Role.WEREWOLF:
+            accessible_messages['mafia'] = game['mafia_chat']
+        
+        # Chat des morts - seulement si mort
+        if not player['alive']:
+            accessible_messages['dead'] = game['dead_chat']
+        
+        # Messages privés - toujours accessibles
+        # Filtrer pour ne montrer que ceux destinés au joueur
+        player_private_messages = [
+            msg for msg in game['private_messages']
+            if msg.get('recipient') == player_name or msg.get('sender') == player_name
+        ]
+        accessible_messages['private'] = player_private_messages
+        
+        return accessible_messages
+    
+    def send_private_message(self, game_id, sender, recipient, message):
+        """Envoie un message privé avec notification publique"""
+        if game_id not in self.games:
+            return False, "Game not found"
+        
+        game = self.games[game_id]
+        
+        if sender not in game['players'] or recipient not in game['players']:
+            return False, "Joueur non trouvé"
+        
+        sender_player = game['players'][sender]
+        recipient_player = game['players'][recipient]
+        
+        # Vérifier que les deux joueurs sont vivants
+        if not sender_player['alive'] or not recipient_player['alive']:
+            return False, "Les morts ne peuvent pas envoyer de MP"
+        
+        # Créer le message privé
+        private_message = {
+            'sender': sender,
+            'recipient': recipient,
+            'message': message,
+            'timestamp': datetime.now().isoformat(),
+            'day': game.get('day_count', 0),
+            'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase'],
+            'channel': 'private'
+        }
+        
+        game['private_messages'].append(private_message)
+        
+        # Notification publique selon les règles SC2 Mafia
+        notification = {
+            'player': 'SYSTEM',
+            'player_name': 'SYSTEM',
+            'message': f"{sender} a envoyé un message privé à {recipient}",
+            'timestamp': datetime.now().isoformat(),
+            'day': game.get('day_count', 0),
+            'phase': game['phase'].value if isinstance(game['phase'], Phase) else game['phase'],
+            'channel': 'public',
+            'is_notification': True
+        }
+        
+        game['chat_messages'].append(notification)
+        
+        return True, "Message privé envoyé"
+    
+    def get_available_chat_channels(self, game_id, player_name):
+        """Retourne les canaux de chat disponibles pour un joueur"""
+        if game_id not in self.games:
+            return []
+        
+        game = self.games[game_id]
+        
+        if player_name not in game['players']:
+            return []
+        
+        player = game['players'][player_name]
+        channels = []
+        
+        # Canal public
+        if self._can_send_message(game, player, ChatChannel.PUBLIC):
+            channels.append({
+                'id': 'public',
+                'name': 'Village',
+                'description': 'Chat public du village',
+                'color': '#3b82f6'
+            })
+        
+        # Canal mafia
+        if self._can_send_message(game, player, ChatChannel.MAFIA):
+            channels.append({
+                'id': 'mafia',
+                'name': 'Meute',
+                'description': 'Chat privé des loups-garous',
+                'color': '#ef4444'
+            })
+        
+        # Canal des morts
+        if self._can_send_message(game, player, ChatChannel.DEAD):
+            channels.append({
+                'id': 'dead',
+                'name': 'Outre-tombe',
+                'description': 'Chat des esprits',
+                'color': '#6b7280'
+            })
+        
+        # Messages privés
+        if self._can_send_message(game, player, ChatChannel.PRIVATE):
+            channels.append({
+                'id': 'private',
+                'name': 'Messages Privés',
+                'description': 'Conversations secrètes',
+                'color': '#8b5cf6'
+            })
+        
+        return channels
 
 # Global game engine instance
 game_engine = GameEngine() 

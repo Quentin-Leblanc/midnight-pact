@@ -146,13 +146,15 @@ def advance_phase(room_code):
 
 @gameplay_bp.route('/games/<room_code>/chat', methods=['POST'])
 def send_chat_message(room_code):
-    """Send a chat message"""
+    """Send a chat message (legacy endpoint - uses public channel)"""
     try:
         data = request.get_json()
         player_name = data.get('player_name')
         message = data.get('message')
         
-        success, result = game_engine.add_chat_message(room_code, player_name, message)
+        # Use public channel by default for backward compatibility
+        from src.game_engine import ChatChannel
+        success, result = game_engine.add_chat_message(room_code, player_name, message, ChatChannel.PUBLIC)
         
         if success:
             return jsonify({
@@ -275,4 +277,92 @@ def get_trial_info(room_code):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/chat-channels', methods=['GET'])
+def get_chat_channels(room_code):
+    """Get available chat channels for a player"""
+    try:
+        player_name = request.args.get('player_name')
+        if not player_name:
+            return jsonify({'error': 'player_name required'}), 400
+            
+        channels = game_engine.get_available_chat_channels(room_code, player_name)
+        return jsonify({'channels': channels})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/chat-messages', methods=['GET'])
+def get_all_chat_messages(room_code):
+    """Get all accessible chat messages for a player"""
+    try:
+        player_name = request.args.get('player_name')
+        if not player_name:
+            return jsonify({'error': 'player_name required'}), 400
+            
+        messages = game_engine.get_chat_messages(room_code, player_name)
+        return jsonify({'messages': messages})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/chat/<channel>', methods=['POST'])
+def send_channel_message(room_code, channel):
+    """Send message to specific chat channel"""
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        message = data.get('message')
+        
+        if not player_name or not message:
+            return jsonify({'error': 'player_name and message required'}), 400
+        
+        # Convert channel string to enum
+        from src.game_engine import ChatChannel
+        channel_enum = None
+        
+        if channel == 'public':
+            channel_enum = ChatChannel.PUBLIC
+        elif channel == 'mafia':
+            channel_enum = ChatChannel.MAFIA
+        elif channel == 'triad':
+            channel_enum = ChatChannel.TRIAD
+        elif channel == 'dead':
+            channel_enum = ChatChannel.DEAD
+        elif channel == 'private':
+            channel_enum = ChatChannel.PRIVATE
+        else:
+            return jsonify({'error': 'Invalid channel'}), 400
+        
+        success, result = game_engine.add_chat_message(room_code, player_name, message, channel_enum)
+        
+        if success:
+            return jsonify({'success': True, 'message': result})
+        else:
+            return jsonify({'success': False, 'error': result}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@gameplay_bp.route('/games/<room_code>/private-message', methods=['POST'])
+def send_private_message_route(room_code):
+    """Send private message with public notification"""
+    try:
+        data = request.get_json()
+        sender = data.get('sender')
+        recipient = data.get('recipient')
+        message = data.get('message')
+        
+        if not sender or not recipient or not message:
+            return jsonify({'error': 'sender, recipient and message required'}), 400
+        
+        success, result = game_engine.send_private_message(room_code, sender, recipient, message)
+        
+        if success:
+            return jsonify({'success': True, 'message': result})
+        else:
+            return jsonify({'success': False, 'error': result}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
