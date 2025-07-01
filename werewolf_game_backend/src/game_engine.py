@@ -7,10 +7,15 @@ class Role(Enum):
     VILLAGER = "villager"
     SEER = "seer"
     WITCH = "witch"
-    GUARD = "bodyguard"
+    GUARD = "bodyguard"           # Legacy - protection basique
     HUNTER = "hunter"
     SHERIFF = "sheriff"           # Détecte "Suspect" vs "Not Suspicious"  
     INVESTIGATOR = "investigator" # Donne indices sur type de rôle
+    
+    # 🆕 PHASE 3 - RÔLES DÉFENSIFS TOWN
+    BODYGUARD = "bodyguard_new"   # Protection sacrificielle d'autres joueurs
+    VETERAN = "veteran"           # Auto-défense + contre-attaque mortelle
+    DOCTOR = "doctor"             # Soins préventifs et guérison
     
     # MAFIA ROLES (Faction Mafia)
     WEREWOLF = "werewolf"         # Legacy - sera remplacé par Mafioso
@@ -250,10 +255,14 @@ class GameEngine:
             roles_to_assign.append(investigation_role)
             
         if town_special >= 4:
-            roles_to_assign.append(Role.GUARD)
+            # 🆕 PHASE 3 - Nouveaux rôles défensifs prioritaires
+            defensive_role = random.choice([Role.BODYGUARD, Role.DOCTOR, Role.GUARD])
+            roles_to_assign.append(defensive_role)
             
         if town_special >= 5:
-            roles_to_assign.append(Role.HUNTER)
+            # Ajouter Veteran ou Hunter
+            combat_role = random.choice([Role.VETERAN, Role.HUNTER])
+            roles_to_assign.append(combat_role)
             
         if town_special >= 6:
             # Ajouter l'autre rôle investigatif
@@ -261,6 +270,12 @@ class GameEngine:
                 roles_to_assign.append(Role.SHERIFF)
             elif Role.INVESTIGATOR not in roles_to_assign:
                 roles_to_assign.append(Role.INVESTIGATOR)
+                
+        if town_special >= 7:
+            # Ajouter un autre rôle défensif
+            remaining_defensive = [r for r in [Role.BODYGUARD, Role.DOCTOR, Role.GUARD] if r not in roles_to_assign]
+            if remaining_defensive:
+                roles_to_assign.append(random.choice(remaining_defensive))
         
         # Compléter avec des villageois
         while len(roles_to_assign) < player_count:
@@ -283,6 +298,16 @@ class GameEngine:
                     game['defense_levels'][player_name] = DefenseLevel.BASIC
             else:
                 game['players'][player_name]['faction'] = Faction.TOWN
+                
+                # 🆕 PHASE 3 - Configuration défenses rôles Town
+                if role == Role.VETERAN:
+                    game['defense_levels'][player_name] = DefenseLevel.BASIC
+                    game['players'][player_name]['veteran_alerts'] = 3  # 3 alertes max
+                    game['players'][player_name]['veteran_on_alert'] = False
+                elif role == Role.BODYGUARD:
+                    game['players'][player_name]['bodyguard_vests'] = 1  # 1 gilet pare-balles
+                elif role == Role.DOCTOR:
+                    game['players'][player_name]['doctor_heals'] = 999  # Soins illimités
             
             print(f"DEBUG: Assigned {role.value} to {player_name}")
         
@@ -529,6 +554,53 @@ class GameEngine:
             else:
                 return False, "Cible invalide pour l'investigation"
         
+        # 🆕 PHASE 3 - ACTIONS DÉFENSIVES TOWN
+        elif player['role'] == Role.BODYGUARD and action == 'protect':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            # Vérifier si des gilets restants
+            if player.get('bodyguard_vests', 0) <= 0:
+                return False, "Plus de gilets pare-balles disponibles"
+                
+            if target and target in game['players'] and game['players'][target]['alive'] and target != player_name:
+                game['night_actions'][player_name]['bodyguard_protect'] = target
+                player['night_action_used'] = True
+                return True, f"Vous protégez {target} cette nuit. Vous mourrez à sa place si il/elle est attaqué(e)."
+            else:
+                return False, "Cible invalide pour la protection (vous ne pouvez pas vous protéger)"
+                
+        elif player['role'] == Role.VETERAN and action == 'alert':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            # Vérifier si des alertes restantes
+            if player.get('veteran_alerts', 0) <= 0:
+                return False, "Plus d'alertes disponibles"
+                
+            # Vérifier si déjà en alerte
+            if player.get('veteran_on_alert', False):
+                return False, "Vous êtes déjà en alerte"
+                
+            game['night_actions'][player_name]['veteran_alert'] = True
+            player['night_action_used'] = True
+            player['veteran_on_alert'] = True
+            return True, "Vous êtes maintenant en alerte ! Vous tuerez tous ceux qui vous visitent cette nuit."
+            
+        elif player['role'] == Role.DOCTOR and action == 'heal':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            if target and target in game['players'] and game['players'][target]['alive'] and target != player_name:
+                game['night_actions'][player_name]['doctor_heal'] = target
+                player['night_action_used'] = True
+                return True, f"Vous soignez {target} cette nuit. Il/elle sera protégé(e) des attaques."
+            else:
+                return False, "Cible invalide pour les soins (vous ne pouvez pas vous soigner)"
+        
         else:
             return False, "Invalid action for role"
     
@@ -637,13 +709,46 @@ class GameEngine:
         return True, f"Advanced to {game['phase'].value}"
     
     def _process_night_actions(self, game):
-        """Process all night actions"""
-        # First, apply protection
+        """🆕 PHASE 3 - Process all night actions (avec rôles défensifs)"""
+        # 🆕 PHASE 3 - Traitement des protections avancées
+        protected_players = set()
+        bodyguard_protections = {}  # target -> bodyguard_name
+        doctor_heals = set()
+        veteran_alerts = set()
+        
+        # First, apply all protections
         for player_name, actions in game['night_actions'].items():
+            player = game['players'][player_name]
+            
+            # Legacy Guard protection
             if 'protect' in actions:
                 target = actions['protect']
                 if target in game['players']:
                     game['players'][target]['protected'] = True
+                    protected_players.add(target)
+            
+            # 🆕 Bodyguard protection (sacrificielle)
+            elif 'bodyguard_protect' in actions:
+                target = actions['bodyguard_protect']
+                if target in game['players']:
+                    bodyguard_protections[target] = player_name
+                    protected_players.add(target)
+                    # Consommer un gilet
+                    player['bodyguard_vests'] = max(0, player.get('bodyguard_vests', 1) - 1)
+            
+            # 🆕 Doctor heal
+            elif 'doctor_heal' in actions:
+                target = actions['doctor_heal']
+                if target in game['players']:
+                    doctor_heals.add(target)
+                    protected_players.add(target)
+            
+            # 🆕 Veteran alert
+            elif 'veteran_alert' in actions:
+                veteran_alerts.add(player_name)
+                # Consommer une alerte
+                player['veteran_alerts'] = max(0, player.get('veteran_alerts', 3) - 1)
+                player['veteran_on_alert'] = True
         
         # 🆕 PHASE 1 - Coordination des kills Mafia
         mafia_target = None
@@ -694,56 +799,137 @@ class GameEngine:
         # Collect elimination stories for combined message
         elimination_stories = []
         
-        # 🆕 Resolve Mafia kills (avec système de défense)
+        # 🆕 PHASE 3 - Resolve Mafia kills (avec système de défense avancé)
         if mafia_target and mafia_target in game['players']:
             target_player = game['players'][mafia_target]
             
-            # Système de défense : vérifier protection + défense naturelle
-            is_protected = target_player['protected'] or mafia_target == witch_heal_target
-            target_defense = game['defense_levels'].get(mafia_target, DefenseLevel.NONE)
-            
-            # Mafia kill = Basic attack par défaut
-            attack_level = AttackLevel.BASIC
-            
-            # Résoudre attaque vs défense
-            kill_succeeds = not is_protected and target_defense == DefenseLevel.NONE
-            
-            if kill_succeeds:
-                target_player['alive'] = False
-                eliminated_info = {
-                    'name': mafia_target,
-                    'cause': 'mafia_kill',
-                    'day': game['day_count'],
-                    'role': target_player['role'].value if isinstance(target_player['role'], Role) else target_player['role']
-                }
-                game['eliminated_players'].append(eliminated_info)
-                elimination_stories.append(self._generate_death_story(mafia_target, 'mafia_kill', target_player['role']))
+            # 🆕 Vérifier si le Veteran est en alerte et tue l'attaquant
+            if mafia_target in veteran_alerts:
+                # Veteran tue l'attaquant !
+                if mafia_killer and mafia_killer in game['players']:
+                    killer_player = game['players'][mafia_killer]
+                    killer_player['alive'] = False
+                    
+                    eliminated_info = {
+                        'name': mafia_killer,
+                        'cause': 'veteran_kill',
+                        'day': game['day_count'],
+                        'role': killer_player['role'].value if isinstance(killer_player['role'], Role) else killer_player['role']
+                    }
+                    game['eliminated_players'].append(eliminated_info)
+                    elimination_stories.append(f"⚔️ {mafia_killer} a tenté d'attaquer {mafia_target}, mais le Veteran était en alerte ! L'attaquant a été éliminé.")
+                    
+                    # Révéler testament
+                    self.reveal_will_on_death(game, mafia_killer)
                 
-                # 🆕 Révéler testament et note de mort
-                self.reveal_will_on_death(game, mafia_target)
-                
-                if mafia_killer:
-                    self.reveal_death_note_on_kill(game, mafia_killer, mafia_target)
-                
-                # Ajouter à l'historique
+                # Veteran survit grâce à sa défense
                 game['game_history'].append({
-                    'type': 'elimination',
+                    'type': 'veteran_defense',
                     'phase': 'night',
                     'day': game['day_count'],
                     'player': mafia_target,
-                    'cause': 'mafia_kill',
-                    'role': eliminated_info['role'],
-                    'description': f"{mafia_target} ({eliminated_info['role']}) a été éliminé par la Mafia"
+                    'killer': mafia_killer,
+                    'description': f"{mafia_target} (Veteran) a tué {mafia_killer} qui tentait de l'attaquer"
                 })
-            elif target_defense != DefenseLevel.NONE:
-                # Message de défense réussie
-                game['game_history'].append({
-                    'type': 'defense',
-                    'phase': 'night',
-                    'day': game['day_count'],
-                    'player': mafia_target,
-                    'description': f"{mafia_target} a survécu à une attaque grâce à sa défense"
-                })
+                
+            else:
+                # 🆕 PHASE 3 - Système de défense avancé avec priorités
+                
+                # 1. Vérifier Doctor/Witch heal en priorité (évite sacrifice Bodyguard)
+                if mafia_target in doctor_heals or mafia_target == witch_heal_target:
+                    protection_type = "soins du Doctor" if mafia_target in doctor_heals else "potion de guérison"
+                    game['game_history'].append({
+                        'type': 'defense',
+                        'phase': 'night',
+                        'day': game['day_count'],
+                        'player': mafia_target,
+                        'description': f"{mafia_target} a survécu à une attaque grâce à sa {protection_type}"
+                    })
+                    
+                # 2. Vérifier protection Bodyguard (sacrificielle)
+                elif mafia_target in bodyguard_protections:
+                    bodyguard_name = bodyguard_protections[mafia_target]
+                    bodyguard_player = game['players'][bodyguard_name]
+                    
+                    # Bodyguard meurt à la place
+                    bodyguard_player['alive'] = False
+                    eliminated_info = {
+                        'name': bodyguard_name,
+                        'cause': 'bodyguard_sacrifice',
+                        'day': game['day_count'],
+                        'role': bodyguard_player['role'].value if isinstance(bodyguard_player['role'], Role) else bodyguard_player['role']
+                    }
+                    game['eliminated_players'].append(eliminated_info)
+                    elimination_stories.append(f"🛡️ {bodyguard_name} s'est sacrifié pour protéger {mafia_target}. Le Bodyguard a pris la balle à sa place.")
+                    
+                    # Révéler testament du bodyguard
+                    self.reveal_will_on_death(game, bodyguard_name)
+                    
+                    # Cible survit
+                    game['game_history'].append({
+                        'type': 'bodyguard_sacrifice',
+                        'phase': 'night',
+                        'day': game['day_count'],
+                        'bodyguard': bodyguard_name,
+                        'protected': mafia_target,
+                        'description': f"{bodyguard_name} s'est sacrifié pour sauver {mafia_target}"
+                    })
+                    
+                else:
+                    # 3. Vérifier autres protections (Guard, défense naturelle)
+                    is_protected = game['players'][mafia_target].get('protected', False)
+                    target_defense = game['defense_levels'].get(mafia_target, DefenseLevel.NONE)
+                    
+                    # Mafia kill = Basic attack par défaut
+                    attack_level = AttackLevel.BASIC
+                    
+                    # Résoudre attaque vs défense
+                    kill_succeeds = not is_protected and target_defense == DefenseLevel.NONE
+                    
+                    if kill_succeeds:
+                        # Kill normal
+                        target_player['alive'] = False
+                        eliminated_info = {
+                            'name': mafia_target,
+                            'cause': 'mafia_kill',
+                            'day': game['day_count'],
+                            'role': target_player['role'].value if isinstance(target_player['role'], Role) else target_player['role']
+                        }
+                        game['eliminated_players'].append(eliminated_info)
+                        elimination_stories.append(self._generate_death_story(mafia_target, 'mafia_kill', target_player['role']))
+                        
+                        # 🆕 Révéler testament et note de mort
+                        self.reveal_will_on_death(game, mafia_target)
+                        
+                        if mafia_killer:
+                            self.reveal_death_note_on_kill(game, mafia_killer, mafia_target)
+                        
+                        # Ajouter à l'historique
+                        game['game_history'].append({
+                            'type': 'elimination',
+                            'phase': 'night',
+                            'day': game['day_count'],
+                            'player': mafia_target,
+                            'cause': 'mafia_kill',
+                            'role': eliminated_info['role'],
+                            'description': f"{mafia_target} ({eliminated_info['role']}) a été éliminé par la Mafia"
+                        })
+                        
+                     else:
+                         # Message de défense réussie
+                         protection_type = "défense naturelle"
+                         if game['players'][mafia_target].get('protected', False):
+                             protection_type = "protection du Garde"
+                         elif target_defense != DefenseLevel.NONE:
+                             protection_type = "défense naturelle"
+                            
+                         game['game_history'].append({
+                             'type': 'defense',
+                             'phase': 'night',
+                             'day': game['day_count'],
+                             'player': mafia_target,
+                             'description': f"{mafia_target} a survécu à une attaque grâce à sa {protection_type}"
+                         })
         
         # Apply witch poison
         if witch_poison_target and witch_poison_target in game['players']:
@@ -769,6 +955,12 @@ class GameEngine:
                 'role': eliminated_info['role'],
                 'description': f"{witch_poison_target} ({eliminated_info['role']}) a été empoisonné par la sorcière"
             })
+        
+        # 🆕 PHASE 3 - Reset des états temporaires
+        for player_name, player in game['players'].items():
+            # Reset veteran alert status
+            if player.get('veteran_on_alert', False):
+                player['veteran_on_alert'] = False
         
         # Combine all elimination stories
         if elimination_stories:
@@ -1122,6 +1314,34 @@ class GameEngine:
                     actions.append({
                         'type': 'investigate',
                         'description': 'Investigation précise (révèle le rôle exact)',
+                        'targets': alive_others
+                    })
+            
+            # 🆕 PHASE 3 - ACTIONS DÉFENSIVES TOWN
+            elif player['role'] == Role.BODYGUARD and not player.get('night_action_used', False):
+                # Bodyguard peut protéger quelqu'un d'autre (pas lui-même)
+                if alive_others and player.get('bodyguard_vests', 0) > 0:
+                    actions.append({
+                        'type': 'protect',
+                        'description': f'Protéger un joueur (Gilets restants: {player.get("bodyguard_vests", 0)})',
+                        'targets': alive_others
+                    })
+            
+            elif player['role'] == Role.VETERAN and not player.get('night_action_used', False):
+                # Veteran peut se mettre en alerte (auto-défense + contre-attaque)
+                if player.get('veteran_alerts', 0) > 0 and not player.get('veteran_on_alert', False):
+                    actions.append({
+                        'type': 'alert',
+                        'description': f'Se mettre en alerte (Alertes restantes: {player.get("veteran_alerts", 0)})',
+                        'targets': []  # Pas de cible, action sur soi-même
+                    })
+            
+            elif player['role'] == Role.DOCTOR and not player.get('night_action_used', False):
+                # Doctor peut soigner quelqu'un d'autre (pas lui-même)
+                if alive_others:
+                    actions.append({
+                        'type': 'heal',
+                        'description': 'Soigner un joueur (prévient les attaques)',
                         'targets': alive_others
                     })
         
@@ -1975,7 +2195,7 @@ class GameEngine:
             return SheriffResult.NOT_SUSPICIOUS
     
     def _get_investigator_group(self, target_role):
-        """🆕 PHASE 2 - Détermine le groupe d'investigation pour l'Investigator (avec rôles Mafia)"""
+        """🆕 PHASE 3 - Détermine le groupe d'investigation pour l'Investigator (avec rôles défensifs)"""
         # Mapping rôles vers groupes d'investigation
         role_groups = {
             # Town Roles
@@ -1986,6 +2206,11 @@ class GameEngine:
             Role.HUNTER: InvestigationGroup.KILLERS,
             Role.VILLAGER: InvestigationGroup.SUPPORT,
             Role.WITCH: InvestigationGroup.WITCHES,
+            
+            # 🆕 PHASE 3 - Rôles Défensifs Town
+            Role.BODYGUARD: InvestigationGroup.PROTECTORS,
+            Role.VETERAN: InvestigationGroup.KILLERS,     # Veteran peut tuer les attaquants
+            Role.DOCTOR: InvestigationGroup.PROTECTORS,
             
             # 🆕 Mafia Roles - Tous dans le groupe MAFIA pour les cacher
             Role.WEREWOLF: InvestigationGroup.MAFIA,

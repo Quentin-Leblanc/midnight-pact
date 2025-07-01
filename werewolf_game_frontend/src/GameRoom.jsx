@@ -203,6 +203,38 @@ const ROLE_DESCRIPTIONS = {
     team: 'mafia',
     glowClass: 'consigliere-glow',
   },
+  
+  // 🆕 PHASE 3 - RÔLES DÉFENSIFS TOWN
+  bodyguard_new: {
+    name: 'Bodyguard',
+    description: 'Protecteur sacrificiel qui donne sa vie pour les autres',
+    detailedDescription:
+      'Vous possédez un gilet pare-balles. Chaque nuit, vous pouvez protéger un joueur. Si cette personne est attaquée, vous mourrez à sa place.',
+    icon: Shield,
+    color: 'text-blue-400',
+    team: 'village',
+    glowClass: 'bodyguard-glow',
+  },
+  veteran: {
+    name: 'Veteran',
+    description: 'Guerrier expérimenté avec défense et contre-attaque',
+    detailedDescription:
+      'Vous avez 3 alertes. Chaque nuit, vous pouvez vous mettre en alerte. Vous survivrez aux attaques et tuerez tous ceux qui vous visitent.',
+    icon: Sword,
+    color: 'text-red-400',
+    team: 'village',
+    glowClass: 'veteran-glow',
+  },
+  doctor: {
+    name: 'Doctor',
+    description: 'Médecin qui soigne et protège les blessés',
+    detailedDescription:
+      'Chaque nuit, vous pouvez soigner un joueur (pas vous-même). Cette personne sera protégée des attaques cette nuit-là.',
+    icon: Heart,
+    color: 'text-pink-400',
+    team: 'village',
+    glowClass: 'doctor-glow',
+  },
 };
 
 const PHASE_INFO = {
