@@ -17,6 +17,11 @@ class Role(Enum):
     VETERAN = "veteran"           # Auto-défense + contre-attaque mortelle
     DOCTOR = "doctor"             # Soins préventifs et guérison
     
+    # 🆕 PHASE 4 - RÔLES NEUTRES
+    SURVIVOR = "survivor"         # Doit survivre jusqu'à la fin
+    SERIAL_KILLER = "serial_killer"  # Tueur indépendant
+    JESTER = "jester"            # Veut être lynché pour gagner
+    
     # MAFIA ROLES (Faction Mafia)
     WEREWOLF = "werewolf"         # Legacy - sera remplacé par Mafioso
     GODFATHER = "godfather"       # Leader mafia, immunité investigation
@@ -70,7 +75,7 @@ class InvestigationGroup(Enum):
 class Faction(Enum):
     TOWN = "town"                  # Village/Innocent
     MAFIA = "mafia"               # Faction Mafia
-    NEUTRAL = "neutral"           # Rôles neutres
+    NEUTRAL = "neutral"           # Rôles neutres (Survivor, Serial Killer, Jester)
 
 class DefenseLevel(Enum):
     NONE = "none"                 # Pas de défense
@@ -277,6 +282,21 @@ class GameEngine:
             if remaining_defensive:
                 roles_to_assign.append(random.choice(remaining_defensive))
         
+        # 🆕 PHASE 4 - Rôles neutres selon taille (remplacent certains Town)
+        neutral_count = 0
+        if player_count >= 8:
+            neutral_count = 1  # 1 neutre pour 8+ joueurs
+        if player_count >= 12:
+            neutral_count = 2  # 2 neutres pour 12+ joueurs
+            
+        # Ajouter les rôles neutres
+        available_neutrals = [Role.SURVIVOR, Role.SERIAL_KILLER, Role.JESTER]
+        for _ in range(neutral_count):
+            if available_neutrals and len(roles_to_assign) < player_count:
+                neutral_role = random.choice(available_neutrals)
+                available_neutrals.remove(neutral_role)
+                roles_to_assign.append(neutral_role)
+        
         # Compléter avec des villageois
         while len(roles_to_assign) < player_count:
             roles_to_assign.append(Role.VILLAGER)
@@ -296,6 +316,21 @@ class GameEngine:
                 if role == Role.GODFATHER:
                     game['investigation_immunities'][player_name] = True  # Immunité Sheriff
                     game['defense_levels'][player_name] = DefenseLevel.BASIC
+                    
+            elif role in [Role.SURVIVOR, Role.SERIAL_KILLER, Role.JESTER]:
+                # 🆕 PHASE 4 - Configuration rôles neutres
+                game['players'][player_name]['faction'] = Faction.NEUTRAL
+                
+                if role == Role.SURVIVOR:
+                    game['defense_levels'][player_name] = DefenseLevel.BASIC  # Défense basique
+                    game['players'][player_name]['survivor_vests'] = 4  # 4 gilets de protection
+                elif role == Role.SERIAL_KILLER:
+                    game['defense_levels'][player_name] = DefenseLevel.BASIC  # Défense basique
+                    game['players'][player_name]['sk_cautious'] = False  # Mode prudent
+                elif role == Role.JESTER:
+                    # Jester n'a pas de capacités spéciales, juste condition victoire
+                    pass
+                    
             else:
                 game['players'][player_name]['faction'] = Faction.TOWN
                 
@@ -601,6 +636,42 @@ class GameEngine:
             else:
                 return False, "Cible invalide pour les soins (vous ne pouvez pas vous soigner)"
         
+        # 🆕 PHASE 4 - ACTIONS NEUTRES
+        elif player['role'] == Role.SURVIVOR and action == 'vest':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            # Vérifier si des gilets restants
+            if player.get('survivor_vests', 0) <= 0:
+                return False, "Plus de gilets de protection disponibles"
+                
+            game['night_actions'][player_name]['survivor_vest'] = True
+            player['night_action_used'] = True
+            return True, "Vous enfilez un gilet de protection. Vous serez protégé des attaques cette nuit."
+            
+        elif player['role'] == Role.SERIAL_KILLER and action == 'kill':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            if target and target in game['players'] and game['players'][target]['alive'] and target != player_name:
+                game['night_actions'][player_name]['sk_kill'] = target
+                player['night_action_used'] = True
+                return True, f"Vous vous préparez à éliminer {target} cette nuit. Personne ne vous arrêtera."
+            else:
+                return False, "Cible invalide pour l'élimination"
+                
+        elif player['role'] == Role.SERIAL_KILLER and action == 'cautious':
+            # Mode prudent : pas d'action, mais défense renforcée
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà choisi votre action cette nuit"
+                
+            game['night_actions'][player_name]['sk_cautious'] = True
+            player['night_action_used'] = True
+            player['sk_cautious'] = True
+            return True, "Vous restez prudent cette nuit. Votre défense est renforcée mais vous n'attaquez pas."
+        
         else:
             return False, "Invalid action for role"
     
@@ -749,6 +820,34 @@ class GameEngine:
                 # Consommer une alerte
                 player['veteran_alerts'] = max(0, player.get('veteran_alerts', 3) - 1)
                 player['veteran_on_alert'] = True
+        
+        # 🆕 PHASE 4 - Traitement des actions neutres
+        survivor_vests = set()
+        sk_targets = {}  # sk_name -> target
+        sk_cautious = set()
+        
+        for player_name, actions in game['night_actions'].items():
+            player = game['players'][player_name]
+            
+            # Survivor vest
+            if 'survivor_vest' in actions:
+                survivor_vests.add(player_name)
+                # Consommer un gilet
+                player['survivor_vests'] = max(0, player.get('survivor_vests', 4) - 1)
+                # Ajouter défense temporaire
+                game['defense_levels'][player_name] = DefenseLevel.BASIC
+                
+            # Serial Killer kill
+            elif 'sk_kill' in actions:
+                target = actions['sk_kill']
+                if target in game['players']:
+                    sk_targets[player_name] = target
+                    
+            # Serial Killer cautious
+            elif 'sk_cautious' in actions:
+                sk_cautious.add(player_name)
+                # Défense renforcée en mode prudent
+                game['defense_levels'][player_name] = DefenseLevel.BASIC
         
         # 🆕 PHASE 1 - Coordination des kills Mafia
         mafia_target = None
@@ -915,21 +1014,21 @@ class GameEngine:
                             'description': f"{mafia_target} ({eliminated_info['role']}) a été éliminé par la Mafia"
                         })
                         
-                     else:
-                         # Message de défense réussie
-                         protection_type = "défense naturelle"
-                         if game['players'][mafia_target].get('protected', False):
-                             protection_type = "protection du Garde"
-                         elif target_defense != DefenseLevel.NONE:
-                             protection_type = "défense naturelle"
-                            
-                         game['game_history'].append({
-                             'type': 'defense',
-                             'phase': 'night',
-                             'day': game['day_count'],
-                             'player': mafia_target,
-                             'description': f"{mafia_target} a survécu à une attaque grâce à sa {protection_type}"
-                         })
+                    else:
+                        # Message de défense réussie
+                        protection_type = "défense naturelle"
+                        if game['players'][mafia_target].get('protected', False):
+                            protection_type = "protection du Garde"
+                        elif target_defense != DefenseLevel.NONE:
+                            protection_type = "défense naturelle"
+                           
+                        game['game_history'].append({
+                            'type': 'defense',
+                            'phase': 'night',
+                            'day': game['day_count'],
+                            'player': mafia_target,
+                            'description': f"{mafia_target} a survécu à une attaque grâce à sa {protection_type}"
+                        })
         
         # Apply witch poison
         if witch_poison_target and witch_poison_target in game['players']:
@@ -956,11 +1055,83 @@ class GameEngine:
                 'description': f"{witch_poison_target} ({eliminated_info['role']}) a été empoisonné par la sorcière"
             })
         
+        # 🆕 PHASE 4 - Traitement des kills Serial Killer
+        for sk_name, sk_target in sk_targets.items():
+            if sk_target in game['players'] and game['players'][sk_target]['alive']:
+                target_player = game['players'][sk_target]
+                
+                # Vérifier si le Veteran est en alerte et tue le SK
+                if sk_target in veteran_alerts:
+                    # Veteran tue le Serial Killer !
+                    sk_player = game['players'][sk_name]
+                    sk_player['alive'] = False
+                    
+                    eliminated_info = {
+                        'name': sk_name,
+                        'cause': 'veteran_kill',
+                        'day': game['day_count'],
+                        'role': sk_player['role'].value if isinstance(sk_player['role'], Role) else sk_player['role']
+                    }
+                    game['eliminated_players'].append(eliminated_info)
+                    elimination_stories.append(f"⚔️ {sk_name} a tenté d'attaquer {sk_target}, mais le Veteran était en alerte ! Le Serial Killer a été éliminé.")
+                    
+                    # Révéler testament
+                    self.reveal_will_on_death(game, sk_name)
+                    
+                else:
+                    # Système de défense normal pour SK kill
+                    is_protected = (sk_target in doctor_heals or 
+                                  sk_target == witch_heal_target or
+                                  sk_target in bodyguard_protections or
+                                  game['players'][sk_target].get('protected', False))
+                    target_defense = game['defense_levels'].get(sk_target, DefenseLevel.NONE)
+                    
+                    # Serial Killer kill = Basic attack
+                    kill_succeeds = not is_protected and target_defense == DefenseLevel.NONE
+                    
+                    if kill_succeeds:
+                        # SK kill réussi
+                        target_player['alive'] = False
+                        eliminated_info = {
+                            'name': sk_target,
+                            'cause': 'serial_killer',
+                            'day': game['day_count'],
+                            'role': target_player['role'].value if isinstance(target_player['role'], Role) else target_player['role']
+                        }
+                        game['eliminated_players'].append(eliminated_info)
+                        elimination_stories.append(f"🔪 {sk_target} a été retrouvé mort, victime d'un tueur en série. Les méthodes brutales ne laissent aucun doute...")
+                        
+                        # Révéler testament
+                        self.reveal_will_on_death(game, sk_target)
+                        
+                        # Ajouter à l'historique
+                        game['game_history'].append({
+                            'type': 'elimination',
+                            'phase': 'night',
+                            'day': game['day_count'],
+                            'player': sk_target,
+                            'cause': 'serial_killer',
+                            'role': eliminated_info['role'],
+                            'description': f"{sk_target} ({eliminated_info['role']}) a été éliminé par le Serial Killer"
+                        })
+        
         # 🆕 PHASE 3 - Reset des états temporaires
         for player_name, player in game['players'].items():
             # Reset veteran alert status
             if player.get('veteran_on_alert', False):
                 player['veteran_on_alert'] = False
+            # Reset survivor vest defense
+            if player_name in survivor_vests:
+                if player.get('survivor_vests', 0) == 0:
+                    # Plus de gilets, retirer la défense permanente
+                    if game['defense_levels'].get(player_name) == DefenseLevel.BASIC:
+                        game['defense_levels'][player_name] = DefenseLevel.NONE
+            # Reset SK cautious defense
+            if player_name in sk_cautious:
+                player['sk_cautious'] = False
+                # Retirer défense temporaire
+                if game['defense_levels'].get(player_name) == DefenseLevel.BASIC:
+                    game['defense_levels'][player_name] = DefenseLevel.NONE
         
         # Combine all elimination stories
         if elimination_stories:
@@ -1063,38 +1234,82 @@ class GameEngine:
         return True, ""
     
     def _check_game_end(self, game):
-        """🆕 PHASE 1 - Vérification de fin de jeu avec système de factions"""
+        """🆕 PHASE 4 - Vérification de fin de jeu avec rôles neutres"""
         alive_players = [p for p in game['players'].values() if p['alive']]
+        
+        if len(alive_players) == 0:
+            # Tout le monde est mort - match nul
+            game['winner'] = 'draw'
+            game['phase'] = Phase.ENDED
+            game['status'] = 'ended'
+            return True
         
         # Compter par factions
         alive_mafia = [p for p in alive_players if p['role'] in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
-        alive_town = [p for p in alive_players if p['role'] not in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
+        alive_town = [p for p in alive_players if p['role'] not in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE, Role.SURVIVOR, Role.SERIAL_KILLER, Role.JESTER]]
+        alive_neutrals = [p for p in alive_players if p['role'] in [Role.SURVIVOR, Role.SERIAL_KILLER, Role.JESTER]]
         
-        # Victoire Town : Plus de Mafia vivants
-        if len(alive_mafia) == 0:
+        # 🆕 PHASE 4 - Vérifier victoires neutres spéciales
+        
+        # Victoire Serial Killer : Seul survivant ou égalité avec 1 autre
+        alive_sk = [p for p in alive_players if p['role'] == Role.SERIAL_KILLER]
+        if alive_sk and len(alive_players) <= 2 and len(alive_mafia) == 0 and len(alive_town) == 0:
+            game['winner'] = 'serial_killer'
+            game['phase'] = Phase.ENDED
+            game['status'] = 'ended'
+            game['game_history'].append({
+                'type': 'game_end',
+                'phase': 'end',
+                'day': game['day_count'],
+                'winner': 'serial_killer',
+                'description': '🔪 Victoire du Serial Killer ! Il a éliminé tous ses ennemis.'
+            })
+            return True
+        
+        # Victoire Jester : Déjà gérée dans _execute_accused si lynché
+        
+        # Victoire Town : Plus de Mafia vivants (neutres survivent avec Town)
+        if len(alive_mafia) == 0 and len(alive_sk) == 0:
             game['winner'] = 'town'
             game['phase'] = Phase.ENDED
             game['status'] = 'ended'
+            
+            # Vérifier si des Survivors gagnent aussi
+            survivors = [p for p in alive_players if p['role'] == Role.SURVIVOR]
+            winner_desc = '🎉 Victoire du Village ! Toute la Mafia a été éliminée.'
+            if survivors:
+                survivor_names = [name for name, p in game['players'].items() if p in survivors]
+                winner_desc += f' Les Survivors {", ".join(survivor_names)} survivent également !'
+            
             game['game_history'].append({
                 'type': 'game_end',
                 'phase': 'end',
                 'day': game['day_count'],
                 'winner': 'town',
-                'description': '🎉 Victoire du Village ! Toute la Mafia a été éliminée.'
+                'description': winner_desc
             })
             return True
         
-        # Victoire Mafia : Égalité ou majorité mafia
-        elif len(alive_mafia) >= len(alive_town):
+        # Victoire Mafia : Égalité ou majorité mafia (sans compter SK)
+        non_mafia_non_sk = len(alive_town) + len([p for p in alive_neutrals if p['role'] != Role.SERIAL_KILLER])
+        if len(alive_mafia) >= non_mafia_non_sk and len(alive_sk) == 0:
             game['winner'] = 'mafia'
             game['phase'] = Phase.ENDED
             game['status'] = 'ended'
+            
+            # Vérifier si des Survivors gagnent aussi
+            survivors = [p for p in alive_players if p['role'] == Role.SURVIVOR]
+            winner_desc = '🏴‍☠️ Victoire de la Mafia ! Ils contrôlent maintenant le village.'
+            if survivors:
+                survivor_names = [name for name, p in game['players'].items() if p in survivors]
+                winner_desc += f' Les Survivors {", ".join(survivor_names)} survivent également !'
+                
             game['game_history'].append({
                 'type': 'game_end',
                 'phase': 'end',
                 'day': game['day_count'],
                 'winner': 'mafia',
-                'description': '�️ Victoire de la Mafia ! Ils contrôlent maintenant le village.'
+                'description': winner_desc
             })
             return True
         
@@ -1344,6 +1559,37 @@ class GameEngine:
                         'description': 'Soigner un joueur (prévient les attaques)',
                         'targets': alive_others
                     })
+            
+            # 🆕 PHASE 4 - ACTIONS NEUTRES
+            elif player['role'] == Role.SURVIVOR and not player.get('night_action_used', False):
+                # Survivor peut utiliser un gilet de protection
+                if player.get('survivor_vests', 0) > 0:
+                    actions.append({
+                        'type': 'vest',
+                        'description': f'Utiliser un gilet de protection (Gilets restants: {player.get("survivor_vests", 0)})',
+                        'targets': []  # Pas de cible, action sur soi-même
+                    })
+            
+            elif player['role'] == Role.SERIAL_KILLER and not player.get('night_action_used', False):
+                # Serial Killer peut tuer ou rester prudent
+                if alive_others:
+                    actions.append({
+                        'type': 'kill',
+                        'description': 'Éliminer quelqu\'un cette nuit',
+                        'targets': alive_others
+                    })
+                
+                # Option mode prudent (défense renforcée)
+                actions.append({
+                    'type': 'cautious',
+                    'description': 'Rester prudent (défense renforcée, pas d\'attaque)',
+                    'targets': []  # Pas de cible
+                })
+            
+            elif player['role'] == Role.JESTER:
+                # Jester n'a pas d'actions nocturnes spéciales
+                # Son objectif est de se faire lyncher le jour
+                pass
         
         elif game['phase'] == Phase.DAY:
             # Check if we're in the voting period (last 40 seconds)
@@ -1726,6 +1972,26 @@ class GameEngine:
         
         # Éliminer le joueur
         accused_player['alive'] = False
+        
+        # 🆕 PHASE 4 - Vérifier victoire Jester AVANT élimination
+        if accused_role == Role.JESTER:
+            # Jester gagne immédiatement quand lynché !
+            game['winner'] = 'jester'
+            game['phase'] = Phase.ENDED
+            game['status'] = 'ended'
+            game['game_history'].append({
+                'type': 'game_end',
+                'phase': 'lynching',
+                'day': game['day_count'],
+                'winner': 'jester',
+                'description': f'🎭 Victoire du Jester ! {accused} a réussi à se faire lyncher et gagne la partie !'
+            })
+            
+            # Générer histoire spéciale pour Jester
+            execution_story = f"🎭 {accused} éclate de rire alors que la corde se resserre. Le village réalise trop tard qu'ils viennent de lyncher un innocent Jester qui voulait mourir ! Il remporte la victoire dans un dernier éclat de rire macabre..."
+            game['last_elimination'] = execution_story
+            
+            return True, f"🎭 {accused} (Jester) gagne en étant lynché !"
         
         # Ajouter aux éliminés
         eliminated_info = {
@@ -2180,9 +2446,9 @@ class GameEngine:
     # 🆕 ==================== SYSTÈME D'INVESTIGATION ====================
     
     def _get_sheriff_result(self, investigator_role, target_role):
-        """🆕 PHASE 2 - Détermine le résultat d'investigation du Sheriff (avec immunités Mafia)"""
-        # 🆕 Rôles suspects (Evil/Mafia)
-        suspicious_roles = [Role.WEREWOLF, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]
+        """🆕 PHASE 4 - Détermine le résultat d'investigation du Sheriff (avec rôles neutres)"""
+        # 🆕 Rôles suspects (Evil/Mafia + Serial Killer)
+        suspicious_roles = [Role.WEREWOLF, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE, Role.SERIAL_KILLER]
         
         # 🆕 Rôles immunisés (Godfather a immunité Sheriff dans SC2 Mafia)
         immune_roles = [Role.GODFATHER]
@@ -2192,7 +2458,7 @@ class GameEngine:
         elif target_role in suspicious_roles:
             return SheriffResult.SUSPICIOUS
         else:
-            return SheriffResult.NOT_SUSPICIOUS
+            return SheriffResult.NOT_SUSPICIOUS  # Town + Survivor + Jester = Non suspects
     
     def _get_investigator_group(self, target_role):
         """🆕 PHASE 3 - Détermine le groupe d'investigation pour l'Investigator (avec rôles défensifs)"""
@@ -2211,6 +2477,11 @@ class GameEngine:
             Role.BODYGUARD: InvestigationGroup.PROTECTORS,
             Role.VETERAN: InvestigationGroup.KILLERS,     # Veteran peut tuer les attaquants
             Role.DOCTOR: InvestigationGroup.PROTECTORS,
+            
+            # 🆕 PHASE 4 - Rôles Neutres
+            Role.SURVIVOR: InvestigationGroup.NEUTRALS,
+            Role.SERIAL_KILLER: InvestigationGroup.KILLERS,  # SK est un tueur
+            Role.JESTER: InvestigationGroup.NEUTRALS,
             
             # 🆕 Mafia Roles - Tous dans le groupe MAFIA pour les cacher
             Role.WEREWOLF: InvestigationGroup.MAFIA,
