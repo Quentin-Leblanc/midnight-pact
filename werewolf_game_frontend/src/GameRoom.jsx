@@ -161,6 +161,48 @@ const ROLE_DESCRIPTIONS = {
     team: 'village',
     glowClass: 'investigator-glow',
   },
+  
+  // 🆕 PHASE 1 - RÔLES MAFIA
+  godfather: {
+    name: 'Parrain',
+    description: 'Chef respecté de la famille criminelle',
+    detailedDescription:
+      'Vous dirigez la Mafia. Ordonnez les éliminations et coordonnez votre équipe. Vous êtes immunisé aux investigations du Sheriff et possédez une défense basique.',
+    icon: Crown,
+    color: 'text-red-400',
+    team: 'mafia',
+    glowClass: 'godfather-glow',
+  },
+  mafioso: {
+    name: 'Mafioso',
+    description: 'Exécuteur loyal de la famille',
+    detailedDescription:
+      'Vous êtes le bras armé de la Mafia. Éliminez les ennemis sur ordre du Parrain. Si le Parrain meurt, vous devenez le nouveau chef.',
+    icon: Skull,
+    color: 'text-red-400',
+    team: 'mafia',
+    glowClass: 'mafioso-glow',
+  },
+  blackmailer: {
+    name: 'Maître-Chanteur',
+    description: 'Manipulateur qui réduit ses victimes au silence',
+    detailedDescription:
+      'Chaque nuit, vous pouvez faire chanter un joueur. Il ne pourra pas parler pendant la journée suivante, révélant ainsi sa culpabilité.',
+    icon: Zap,
+    color: 'text-purple-400',
+    team: 'mafia',
+    glowClass: 'blackmailer-glow',
+  },
+  consigliere: {
+    name: 'Conseiller',
+    description: 'Espion et stratège de la famille',
+    detailedDescription:
+      'Chaque nuit, vous pouvez enquêter sur un joueur pour révéler son rôle exact. Ces informations sont cruciales pour la stratégie de la Mafia.',
+    icon: Eye,
+    color: 'text-orange-400',
+    team: 'mafia',
+    glowClass: 'consigliere-glow',
+  },
 };
 
 const PHASE_INFO = {
@@ -1716,23 +1758,23 @@ function GameRoom({ roomCode, playerName, onLeaveGame }) {
                     </div>
                   )}
                   
-                  {playerRole.role === 'werewolf' &&
-                    playerRole.werewolf_team && (
-                      <div className="text-red-400">
-                        <p className="font-medium mb-2">Équipe Loup-Garou:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {playerRole.werewolf_team.map((teammate) => (
-                            <Badge
-                              key={teammate}
-                              variant="destructive"
-                              className="animate-pulse"
-                            >
-                              {teammate}
-                            </Badge>
-                          ))}
-                        </div>
+                  {/* 🆕 Équipe Mafia */}
+                  {playerRole.faction === 'mafia' && playerRole.mafia_team && (
+                    <div className="text-red-400">
+                      <p className="font-medium mb-2">Famille Mafia:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {playerRole.mafia_team.map((teammate) => (
+                          <Badge
+                            key={teammate}
+                            variant="destructive"
+                            className="animate-pulse"
+                          >
+                            {teammate}
+                          </Badge>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

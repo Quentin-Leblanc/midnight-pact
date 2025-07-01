@@ -3,15 +3,21 @@ import random
 from datetime import datetime, timedelta
 
 class Role(Enum):
+    # TOWN ROLES (Village)
     VILLAGER = "villager"
-    WEREWOLF = "werewolf"
     SEER = "seer"
     WITCH = "witch"
     GUARD = "bodyguard"
     HUNTER = "hunter"
-    # 🆕 CHAPITRE 2 - RÔLES INVESTIGATIFS
     SHERIFF = "sheriff"           # Détecte "Suspect" vs "Not Suspicious"  
     INVESTIGATOR = "investigator" # Donne indices sur type de rôle
+    
+    # MAFIA ROLES (Faction Mafia)
+    WEREWOLF = "werewolf"         # Legacy - sera remplacé par Mafioso
+    GODFATHER = "godfather"       # Leader mafia, immunité investigation
+    MAFIOSO = "mafioso"           # Tueur principal mafia
+    BLACKMAILER = "blackmailer"   # Empêche de parler le jour
+    CONSIGLIERE = "consigliere"   # Investigation pour la mafia
 
 class Phase(Enum):
     WAITING = "waiting"
@@ -53,6 +59,30 @@ class InvestigationGroup(Enum):
     SUPPORT = "support"            # Citizen, Mayor, Mason
     WITCHES = "witches"            # Witch, Witch Doctor
     NEUTRALS = "neutrals"          # Survivor, Amnesiac, etc.
+    MAFIA = "mafia"                # Godfather, Mafioso, Consigliere
+
+# 🆕 PHASE 1 - ENUMS SYSTÈME MAFIA
+class Faction(Enum):
+    TOWN = "town"                  # Village/Innocent
+    MAFIA = "mafia"               # Faction Mafia
+    NEUTRAL = "neutral"           # Rôles neutres
+
+class DefenseLevel(Enum):
+    NONE = "none"                 # Pas de défense
+    BASIC = "basic"               # Défense basique
+    POWERFUL = "powerful"         # Défense puissante
+
+class AttackLevel(Enum):
+    NONE = "none"                 # Pas d'attaque
+    BASIC = "basic"               # Attaque basique
+    POWERFUL = "powerful"         # Attaque puissante
+    UNSTOPPABLE = "unstoppable"   # Traverse toute défense
+
+class SpecialStatus(Enum):
+    BLACKMAILED = "blackmailed"   # Ne peut pas parler
+    ROLEBLOCKED = "roleblocked"   # Action bloquée
+    FRAMED = "framed"             # Apparait suspect
+    DISGUISED = "disguised"       # Apparait comme un autre rôle
 
 class GameEngine:
     def __init__(self):
@@ -102,6 +132,14 @@ class GameEngine:
             # 🆕 Historique des procès
             'trial_history': [],
             'day_voting_enabled': True,           # Vote activé pendant la journée
+            
+            # 🆕 PHASE 1 - SYSTÈME MAFIA
+            'mafia_members': [],                  # Liste des membres mafia
+            'blackmailed_players': [],            # Joueurs blackmailés (ne peuvent pas parler)
+            'special_statuses': {},               # Statuts spéciaux par joueur
+            'investigation_immunities': {},       # Immunités d'investigation
+            'defense_levels': {},                 # Niveaux de défense par joueur
+            'attack_levels': {},                  # Niveaux d'attaque par joueur
         }
         return self.games[game_id]
     
@@ -169,61 +207,90 @@ class GameEngine:
         return True, "Game started successfully"
     
     def _assign_roles(self, game):
-        """Assign roles to players based on game size - 🆕 CHAPITRE 2 avec Sheriff & Investigator"""
+        """🆕 PHASE 1 - Distribution avec Faction Mafia"""
         player_count = len(game['players'])
         player_names = list(game['players'].keys())
         random.shuffle(player_names)
         
-        # 🆕 Distribution des rôles élargie pour Chapitre 2
+        # 🆕 Nouvelle distribution équilibrée Town vs Mafia
         if player_count <= 6:
-            werewolves = 1
-            special_roles = 3  # seer + witch + sheriff OU investigator
+            mafia_count = 2  # Godfather + 1 autre
+            town_special = 3  # seer + witch + sheriff/investigator
         elif player_count <= 10:
-            werewolves = 2
-            special_roles = 4  # seer + witch + guard + sheriff OU investigator
+            mafia_count = 3  # Godfather + Mafioso + 1 autre
+            town_special = 4  # seer + witch + guard + sheriff/investigator
         else:
-            werewolves = 3
-            special_roles = 6  # seer + witch + guard + hunter + sheriff + investigator
+            mafia_count = 4  # Tous les rôles mafia
+            town_special = 6  # seer + witch + guard + hunter + sheriff + investigator
         
         roles_to_assign = []
         
-        # Add werewolves
-        for _ in range(werewolves):
-            roles_to_assign.append(Role.WEREWOLF)
+        # 🆕 DISTRIBUTION FACTION MAFIA
+        mafia_roles_pool = [Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]
         
-        # Add core special roles (toujours présents)
+        # Godfather toujours présent
+        roles_to_assign.append(Role.GODFATHER)
+        mafia_roles_pool.remove(Role.GODFATHER)
+        
+        # Ajouter autres rôles mafia selon la taille
+        for _ in range(mafia_count - 1):
+            if mafia_roles_pool:
+                role = random.choice(mafia_roles_pool)
+                roles_to_assign.append(role)
+                mafia_roles_pool.remove(role)
+        
+        # DISTRIBUTION TOWN (Village)
+        # Core roles toujours présents
         roles_to_assign.append(Role.SEER)
         roles_to_assign.append(Role.WITCH)
         
-        # 🆕 Ajouter rôles investigatifs selon taille
-        if special_roles >= 3:
-            # Choisir aléatoirement Sheriff OU Investigator pour petites parties
+        # Rôles investigatifs selon taille
+        if town_special >= 3:
             investigation_role = random.choice([Role.SHERIFF, Role.INVESTIGATOR])
             roles_to_assign.append(investigation_role)
             
-        if special_roles >= 4:
+        if town_special >= 4:
             roles_to_assign.append(Role.GUARD)
             
-        if special_roles >= 5:
+        if town_special >= 5:
             roles_to_assign.append(Role.HUNTER)
             
-        if special_roles >= 6:
-            # Pour grandes parties, ajouter l'autre rôle investigatif
+        if town_special >= 6:
+            # Ajouter l'autre rôle investigatif
             if Role.SHERIFF not in roles_to_assign:
                 roles_to_assign.append(Role.SHERIFF)
             elif Role.INVESTIGATOR not in roles_to_assign:
                 roles_to_assign.append(Role.INVESTIGATOR)
         
-        # Fill remaining with villagers
+        # Compléter avec des villageois
         while len(roles_to_assign) < player_count:
             roles_to_assign.append(Role.VILLAGER)
         
-        # Assign roles to players
+        # 🆕 Assigner rôles et configurer factions
+        mafia_members = []
         for i, player_name in enumerate(player_names):
-            game['players'][player_name]['role'] = roles_to_assign[i]
-            print(f"DEBUG: Assigned {roles_to_assign[i].value} to {player_name}")
+            role = roles_to_assign[i]
+            game['players'][player_name]['role'] = role
             
-        print(f"🆕 CHAPITRE 2: Distribution finale - {[r.value for r in roles_to_assign]}")
+            # 🆕 Configuration faction et capacités spéciales
+            if role in [Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE, Role.WEREWOLF]:
+                mafia_members.append(player_name)
+                game['players'][player_name]['faction'] = Faction.MAFIA
+                
+                # Immunités spéciales
+                if role == Role.GODFATHER:
+                    game['investigation_immunities'][player_name] = True  # Immunité Sheriff
+                    game['defense_levels'][player_name] = DefenseLevel.BASIC
+            else:
+                game['players'][player_name]['faction'] = Faction.TOWN
+            
+            print(f"DEBUG: Assigned {role.value} to {player_name}")
+        
+        # Sauvegarder les membres mafia
+        game['mafia_members'] = mafia_members
+        
+        print(f"🆕 PHASE 1: Distribution finale - Mafia: {[r.value for r in roles_to_assign if r.value in ['godfather', 'mafioso', 'blackmailer', 'consigliere', 'werewolf']]}")
+        print(f"🆕 PHASE 1: Membres mafia: {mafia_members}")
     
     def get_game_state(self, game_id):
         """Get current game state"""
@@ -322,11 +389,14 @@ class GameEngine:
             'poison_used': player.get('witch_poison_used', False)
         }
         
-        # Add werewolf team info
-        if player['role'] == Role.WEREWOLF:
-            werewolf_team = [name for name, p in game['players'].items() 
-                           if p['role'] == Role.WEREWOLF and p['alive']]
-            role_info['werewolf_team'] = werewolf_team
+        # 🆕 Add mafia team info for all mafia roles
+        if player['role'] in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]:
+            mafia_team = [name for name, p in game['players'].items() 
+                         if p['role'] in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE] and p['alive']]
+            role_info['mafia_team'] = mafia_team
+            role_info['faction'] = 'mafia'
+        else:
+            role_info['faction'] = 'town'
         
         return role_info
     
@@ -420,6 +490,39 @@ class GameEngine:
             
             if target and target in game['players'] and game['players'][target]['alive']:
                 success, message = self.perform_investigator_investigation(game_id, player_name, target)
+                if success:
+                    player['night_action_used'] = True
+                return success, message
+            else:
+                return False, "Cible invalide pour l'investigation"
+        
+        # 🆕 PHASE 1 - ACTIONS MAFIA
+        elif player['role'] == Role.GODFATHER and action == 'kill':
+            # Le Godfather peut ordonner un kill
+            game['night_actions'][player_name]['mafia_kill'] = target
+            return True, f"Vous ordonnez l'élimination de {target}. Votre Mafioso exécutera l'ordre."
+            
+        elif player['role'] == Role.MAFIOSO and action == 'kill':
+            # Le Mafioso exécute les kills
+            game['night_actions'][player_name]['mafia_kill'] = target
+            return True, f"Vous vous préparez à éliminer {target} cette nuit."
+            
+        elif player['role'] == Role.BLACKMAILER and action == 'blackmail':
+            # Vérifier si déjà utilisé cette nuit
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            game['night_actions'][player_name]['blackmail'] = target
+            player['night_action_used'] = True
+            return True, f"Vous faites chanter {target}. Cette personne ne pourra pas parler demain."
+            
+        elif player['role'] == Role.CONSIGLIERE and action == 'investigate':
+            # Investigation mafia - révèle le rôle exact
+            if player.get('night_action_used', False):
+                return False, "Vous avez déjà utilisé votre pouvoir cette nuit"
+                
+            if target and target in game['players'] and game['players'][target]['alive']:
+                success, message = self.perform_consigliere_investigation(game_id, player_name, target)
                 if success:
                     player['night_action_used'] = True
                 return success, message
@@ -539,13 +642,27 @@ class GameEngine:
                 if target in game['players']:
                     game['players'][target]['protected'] = True
         
-        # Then, apply attacks (werewolf kills)
-        werewolf_target = None
+        # 🆕 PHASE 1 - Coordination des kills Mafia
+        mafia_target = None
+        mafia_killer = None
+        
+        # Priorité au Godfather s'il ordonne un kill
         for player_name, actions in game['night_actions'].items():
             player = game['players'][player_name]
-            if player['role'] == Role.WEREWOLF and 'kill' in actions:
-                werewolf_target = actions['kill']
+            if player['role'] == Role.GODFATHER and 'mafia_kill' in actions:
+                mafia_target = actions['mafia_kill']
+                mafia_killer = player_name
                 break
+        
+        # Si pas de Godfather, chercher un Mafioso ou Werewolf
+        if not mafia_target:
+            for player_name, actions in game['night_actions'].items():
+                player = game['players'][player_name]
+                if ((player['role'] == Role.MAFIOSO and 'mafia_kill' in actions) or
+                    (player['role'] == Role.WEREWOLF and 'kill' in actions)):
+                    mafia_target = actions.get('mafia_kill') or actions.get('kill')
+                    mafia_killer = player_name
+                    break
         
         # Apply witch heal/poison
         witch_heal_target = None
@@ -560,47 +677,69 @@ class GameEngine:
                     witch_poison_target = actions['poison']
                     player['witch_poison_used'] = True
         
+        # 🆕 PHASE 1 - Traitement du Blackmail
+        blackmail_target = None
+        for player_name, actions in game['night_actions'].items():
+            player = game['players'][player_name]
+            if player['role'] == Role.BLACKMAILER and 'blackmail' in actions:
+                blackmail_target = actions['blackmail']
+                # Ajouter à la liste des blackmailés pour le jour suivant
+                if blackmail_target not in game['blackmailed_players']:
+                    game['blackmailed_players'].append(blackmail_target)
+                break
+        
         # Collect elimination stories for combined message
         elimination_stories = []
         
-        # Resolve werewolf deaths
-        if werewolf_target and werewolf_target in game['players']:
-            target_player = game['players'][werewolf_target]
-            # Check if protected or healed
-            if not target_player['protected'] and werewolf_target != witch_heal_target:
+        # 🆕 Resolve Mafia kills (avec système de défense)
+        if mafia_target and mafia_target in game['players']:
+            target_player = game['players'][mafia_target]
+            
+            # Système de défense : vérifier protection + défense naturelle
+            is_protected = target_player['protected'] or mafia_target == witch_heal_target
+            target_defense = game['defense_levels'].get(mafia_target, DefenseLevel.NONE)
+            
+            # Mafia kill = Basic attack par défaut
+            attack_level = AttackLevel.BASIC
+            
+            # Résoudre attaque vs défense
+            kill_succeeds = not is_protected and target_defense == DefenseLevel.NONE
+            
+            if kill_succeeds:
                 target_player['alive'] = False
                 eliminated_info = {
-                    'name': werewolf_target,
-                    'cause': 'werewolf_kill',
+                    'name': mafia_target,
+                    'cause': 'mafia_kill',
                     'day': game['day_count'],
                     'role': target_player['role'].value if isinstance(target_player['role'], Role) else target_player['role']
                 }
                 game['eliminated_players'].append(eliminated_info)
-                elimination_stories.append(self._generate_death_story(werewolf_target, 'werewolf_kill', target_player['role']))
+                elimination_stories.append(self._generate_death_story(mafia_target, 'mafia_kill', target_player['role']))
                 
                 # 🆕 Révéler testament et note de mort
-                self.reveal_will_on_death(game, werewolf_target)
+                self.reveal_will_on_death(game, mafia_target)
                 
-                # Trouver le tueur werewolf pour la note de mort
-                werewolf_killer = None
-                for player_name, actions in game['night_actions'].items():
-                    player = game['players'][player_name]
-                    if player['role'] == Role.WEREWOLF and 'kill' in actions and actions['kill'] == werewolf_target:
-                        werewolf_killer = player_name
-                        break
-                
-                if werewolf_killer:
-                    self.reveal_death_note_on_kill(game, werewolf_killer, werewolf_target)
+                if mafia_killer:
+                    self.reveal_death_note_on_kill(game, mafia_killer, mafia_target)
                 
                 # Ajouter à l'historique
                 game['game_history'].append({
                     'type': 'elimination',
                     'phase': 'night',
                     'day': game['day_count'],
-                    'player': werewolf_target,
-                    'cause': 'werewolf_kill',
+                    'player': mafia_target,
+                    'cause': 'mafia_kill',
                     'role': eliminated_info['role'],
-                    'description': f"{werewolf_target} ({eliminated_info['role']}) a été tué par les loups-garous"
+                    'description': f"{mafia_target} ({eliminated_info['role']}) a été éliminé par la Mafia"
+                })
+            elif target_defense != DefenseLevel.NONE:
+                # Message de défense réussie
+                game['game_history'].append({
+                    'type': 'defense',
+                    'phase': 'night',
+                    'day': game['day_count'],
+                    'player': mafia_target,
+                    'description': f"{mafia_target} a survécu à une attaque grâce à sa défense"
                 })
         
         # Apply witch poison
@@ -729,33 +868,38 @@ class GameEngine:
         return True, ""
     
     def _check_game_end(self, game):
-        """Check if the game has ended"""
+        """🆕 PHASE 1 - Vérification de fin de jeu avec système de factions"""
         alive_players = [p for p in game['players'].values() if p['alive']]
-        alive_werewolves = [p for p in alive_players if p['role'] == Role.WEREWOLF]
-        alive_villagers = [p for p in alive_players if p['role'] != Role.WEREWOLF]
         
-        if len(alive_werewolves) == 0:
-            game['winner'] = 'villagers'
+        # Compter par factions
+        alive_mafia = [p for p in alive_players if p['role'] in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
+        alive_town = [p for p in alive_players if p['role'] not in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
+        
+        # Victoire Town : Plus de Mafia vivants
+        if len(alive_mafia) == 0:
+            game['winner'] = 'town'
             game['phase'] = Phase.ENDED
             game['status'] = 'ended'
             game['game_history'].append({
                 'type': 'game_end',
                 'phase': 'end',
                 'day': game['day_count'],
-                'winner': 'villagers',
-                'description': '🎉 Victoire du Village ! Tous les loups-garous ont été éliminés.'
+                'winner': 'town',
+                'description': '🎉 Victoire du Village ! Toute la Mafia a été éliminée.'
             })
             return True
-        elif len(alive_werewolves) >= len(alive_villagers):
-            game['winner'] = 'werewolves'
+        
+        # Victoire Mafia : Égalité ou majorité mafia
+        elif len(alive_mafia) >= len(alive_town):
+            game['winner'] = 'mafia'
             game['phase'] = Phase.ENDED
             game['status'] = 'ended'
             game['game_history'].append({
                 'type': 'game_end',
                 'phase': 'end',
                 'day': game['day_count'],
-                'winner': 'werewolves',
-                'description': '🐺 Victoire des Loups-Garous ! Ils dominent le village.'
+                'winner': 'mafia',
+                'description': '�️ Victoire de la Mafia ! Ils contrôlent maintenant le village.'
             })
             return True
         
@@ -926,6 +1070,52 @@ class GameEngine:
                         'description': 'Analyser un joueur (Indices sur le type de rôle)',
                         'targets': alive_others
                     })
+            
+            # 🆕 PHASE 1 - ACTIONS MAFIA
+            elif player['role'] == Role.GODFATHER and not player.get('night_action_used', False):
+                # Godfather peut ordonner un kill sur n'importe qui d'autre
+                non_mafia_targets = [name for name, p in game['players'].items() 
+                                   if p['alive'] and name != player_name and 
+                                   p['role'] not in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
+                if non_mafia_targets:
+                    actions.append({
+                        'type': 'kill',
+                        'description': 'Ordonner l\'élimination d\'un ennemi',
+                        'targets': non_mafia_targets
+                    })
+            
+            elif player['role'] == Role.MAFIOSO and not player.get('night_action_used', False):
+                # Mafioso peut tuer si pas d'ordre du Godfather
+                non_mafia_targets = [name for name, p in game['players'].items() 
+                                   if p['alive'] and name != player_name and 
+                                   p['role'] not in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
+                if non_mafia_targets:
+                    actions.append({
+                        'type': 'kill',
+                        'description': 'Éliminer un ennemi de la famille',
+                        'targets': non_mafia_targets
+                    })
+            
+            elif player['role'] == Role.BLACKMAILER and not player.get('night_action_used', False):
+                # Blackmailer peut blackmail n'importe qui d'autre
+                non_mafia_targets = [name for name, p in game['players'].items() 
+                                   if p['alive'] and name != player_name and 
+                                   p['role'] not in [Role.WEREWOLF, Role.GODFATHER, Role.MAFIOSO, Role.BLACKMAILER, Role.CONSIGLIERE]]
+                if non_mafia_targets:
+                    actions.append({
+                        'type': 'blackmail',
+                        'description': 'Faire chanter un joueur (l\'empêche de parler demain)',
+                        'targets': non_mafia_targets
+                    })
+            
+            elif player['role'] == Role.CONSIGLIERE and not player.get('night_action_used', False):
+                # Consigliere peut investiguer n'importe qui d'autre
+                if alive_others:
+                    actions.append({
+                        'type': 'investigate',
+                        'description': 'Investigation précise (révèle le rôle exact)',
+                        'targets': alive_others
+                    })
         
         elif game['phase'] == Phase.DAY:
             # Check if we're in the voting period (last 40 seconds)
@@ -1005,6 +1195,65 @@ class GameEngine:
                     f"🐺 {player_name} a été éliminé(e) par ses propres congénères. La meute n'épargne personne, pas même les leurs.",
                     f"🌕 Une lutte fratricide a eu lieu cette nuit. {player_name} est tombé(e) sous les crocs de sa propre meute.",
                     f"⚡ {player_name} a payé le prix de la trahison. Les loups-garous ne tolèrent aucune faiblesse dans leurs rangs."
+                ],
+                # 🆕 PHASE 1 - RÔLES MAFIA
+                'godfather': [
+                    f"🕴️ {player_name}, le Parrain respecté, a été abattu dans une embuscade sanglante. Un empire criminel s'effondre.",
+                    f"💼 {player_name} repose dans un costume ensanglanté. Le chef de la famille a rendu son dernier souffle.",
+                    f"👑 {player_name}, le roi du crime organisé, a été éliminé. Qui reprendra le contrôle de la famille ?"
+                ],
+                'mafioso': [
+                    f"🔫 {player_name}, l'exécuteur de la famille, a été retrouvé criblé de balles. L'arme du crime a retourné contre lui.",
+                    f"⚰️ {player_name} gît dans une flaque de sang, ses propres méthodes utilisées contre lui. La violence appelle la violence.",
+                    f"💀 {player_name}, le bras armé de la mafia, a été éliminé par plus rusé que lui. L'élève a dépassé le maître."
+                ],
+                'blackmailer': [
+                    f"🤐 {player_name}, qui connaissait tous les secrets, a été réduit au silence pour toujours. Ses dossiers brûlent avec lui.",
+                    f"📋 {player_name} emporte ses chantages dans la tombe. Certains secrets meurent avec ceux qui les gardent.",
+                    f"🗂️ {player_name}, maître des manipulations, a été manipulé à son tour. Les cartes se sont retournées contre lui."
+                ],
+                'consigliere': [
+                    f"🎭 {player_name}, le conseiller de l'ombre, a été démasqué et éliminé. Ses stratégies n'ont pas pu le sauver.",
+                    f"📚 {player_name} ferme ses dossiers pour la dernière fois. L'espion de la famille a été découvert.",
+                    f"🕵️ {player_name}, qui savait tout sur tout le monde, n'a pas vu venir son propre destin. L'ironie du sort frappe fort."
+                ]
+            },
+            'mafia_kill': {
+                'villager': [
+                    f"🕴️ {player_name} a été retrouvé(e) ce matin avec une balle dans la tête. La signature de la mafia est claire.",
+                    f"💼 {player_name} repose dans une flaque de sang. Un règlement de comptes mafieux s'est déroulé cette nuit.",
+                    f"🔫 {player_name} a été éliminé(e) par des professionnels. La famille a parlé, et elle ne se répète jamais."
+                ],
+                'seer': [
+                    f"👁️ {player_name}, le/la voyant(e), a été assassiné(e) par la mafia. Ses visions se sont éteintes dans le sang.",
+                    f"🔮 La mafia a fait taire {player_name} pour toujours. L'oracle du village ne parlera plus.",
+                    f"🌟 {player_name} a vu sa propre mort arriver, mais n'a pas pu l'éviter. La prophétie s'est réalisée."
+                ],
+                'witch': [
+                    f"🧪 {player_name}, la sorcière, a été exécutée par des tueurs professionnels. Ses potions n'ont pas pu la sauver.",
+                    f"⚗️ La mafia a dévasté l'antre de {player_name}. Les fioles magiques se mélangent maintenant au sang.",
+                    f"🍃 {player_name} gît parmi ses grimoires déchirés. La famille ne tolère pas la magie qui lui échappe."
+                ],
+                'bodyguard': [
+                    f"🛡️ {player_name}, le/la garde, a été abattu(e) par des tireurs d'élite. Même les protecteurs ont besoin de protection.",
+                    f"⚔️ La mafia a eu raison de {player_name} cette nuit. Le/la garde est tombé(e) sous les balles ennemies.",
+                    f"🏰 {player_name} a livré son dernier combat contre des assassins impitoyables. L'honneur ne suffit pas contre les balles."
+                ],
+                'hunter': [
+                    f"🏹 {player_name}, le/la chasseur/chasseuse, a été pris(e) au piège par la mafia. Les prédateurs sont devenus proies.",
+                    f"🎯 La famille a tracké {player_name} toute la nuit. Le/la chasseur/chasseuse a été chassé(e) à son tour.",
+                    f"🦌 {player_name} pensait traquer le gibier, mais c'est la mafia qui l'attendait. Le jeu s'est retourné contre lui/elle."
+                ],
+                # Mafia tuant mafia (guerre interne)
+                'godfather': [
+                    f"👑 {player_name}, le Parrain, a été renversé par sa propre famille. Une révolution sanglante a eu lieu.",
+                    f"💼 {player_name} repose dans son bureau, trahi par ses propres hommes. Le pouvoir corrompt, même au sommet.",
+                    f"🕴️ {player_name} a été éliminé(e) dans un coup d'État mafieux. L'empire change de mains cette nuit."
+                ],
+                'mafioso': [
+                    f"🔫 {player_name} a été exécuté(e) par ordre de la famille. Désobéir au Parrain coûte cher.",
+                    f"⚰️ {player_name} gît dans une ruelle sombre, victime de la justice mafieuse. La famille nettoie ses rangs.",
+                    f"💀 {player_name} a connu le sort réservé aux traîtres. La mafia ne pardonne jamais."
                 ]
             },
             'voted_out': {
@@ -1037,6 +1286,27 @@ class GameEngine:
                     f"🐺 {player_name} a été démasqué(e) et lynché(e) par le village ({votes} votes) ! La bête immonde paie enfin pour ses crimes nocturnes.",
                     f"🌕 Justice est rendue ! {player_name}, le/la loup-garou, a été éliminé(e) par la volonté du peuple ({votes} votes).",
                     f"⚡ {player_name} révèle sa vraie nature avant de mourir. Le village a réussi à éliminer une créature maléfique ({votes} votes) !"
+                ],
+                # 🆕 PHASE 1 - LYNCHAGES MAFIA
+                'godfather': [
+                    f"👑 {player_name}, le Parrain respecté, a été démasqué et pendu ({votes} votes). L'empire criminel s'effondre sous les yeux du village.",
+                    f"🕴️ {player_name} garde sa dignité jusqu'à la fin, même face à la corde ({votes} votes). Un roi du crime tombe.",
+                    f"💼 {player_name} emporte ses secrets dans la tombe. Le village a éliminé le chef de la famille ({votes} votes)."
+                ],
+                'mafioso': [
+                    f"🔫 {player_name}, l'exécuteur de la famille, a été jugé et condamné ({votes} votes). Le tueur paie pour ses crimes.",
+                    f"⚰️ {player_name} affronte son destin sans trembler ({votes} votes). Un homme de main de moins pour la mafia.",
+                    f"💀 {player_name} reçoit la justice qu'il a refusée à ses victimes ({votes} votes). L'ironie du sort."
+                ],
+                'blackmailer': [
+                    f"🤐 {player_name}, le maître-chanteur, a été réduit au silence pour toujours ({votes} votes). Ses secrets meurent avec lui.",
+                    f"📋 {player_name} brûle avec ses dossiers compromettants ({votes} votes). Les chantages s'arrêtent ici.",
+                    f"🗂️ {player_name} découvre qu'on ne peut pas faire chanter tout un village ({votes} votes). La justice collective triomphe."
+                ],
+                'consigliere': [
+                    f"🎭 {player_name}, le conseiller de l'ombre, a été démasqué par ceux qu'il espionnait ({votes} votes). L'espion devient victime.",
+                    f"📚 {player_name} ferme ses dossiers pour la dernière fois ({votes} votes). L'analyste n'a pas prévu sa propre fin.",
+                    f"🕵️ {player_name}, qui savait tout sur tout le monde, n'a pas vu venir le village en colère ({votes} votes). L'ironie ultime."
                 ]
             },
             'witch_poison': {
@@ -1852,7 +2122,81 @@ class GameEngine:
         if game_id not in self.games:
             return []
         
-        return game['investigation_history']
+        game = self.games[game_id]
+        return game.get('investigation_history', [])
+    
+    # 🆕 PHASE 1 - INVESTIGATION CONSIGLIERE
+    def perform_consigliere_investigation(self, game_id, consigliere_name, target_name):
+        """Investigation Consigliere - révèle le rôle exact (pour la Mafia)"""
+        if game_id not in self.games:
+            return False, "Partie introuvable"
+        
+        game = self.games[game_id]
+        
+        # Vérifications
+        if consigliere_name not in game['players']:
+            return False, "Consigliere introuvable"
+        
+        if target_name not in game['players']:
+            return False, "Cible introuvable"
+        
+        consigliere = game['players'][consigliere_name]
+        target = game['players'][target_name]
+        
+        if consigliere['role'] != Role.CONSIGLIERE:
+            return False, "Seul le Consigliere peut utiliser cette investigation"
+        
+        if not consigliere['alive']:
+            return False, "Les morts ne peuvent pas enquêter"
+        
+        if not target['alive']:
+            return False, "Impossible d'enquêter sur les morts"
+        
+        if target_name == consigliere_name:
+            return False, "Vous ne pouvez pas enquêter sur vous-même"
+        
+        # Révéler le rôle exact (pas d'immunité pour Consigliere)
+        target_role = target['role']
+        
+        # Créer le résultat d'investigation
+        investigation_result = {
+            'investigator': consigliere_name,
+            'target': target_name,
+            'result': target_role.value,
+            'result_message': f"{target_name} est exactement : {self._get_role_display_name(target_role)}",
+            'timestamp': datetime.now().isoformat(),
+            'night': game['day_count'],
+            'type': 'consigliere'
+        }
+        
+        # Sauvegarder le résultat
+        if consigliere_name not in game['investigation_results']:
+            game['investigation_results'][consigliere_name] = []
+        
+        game['investigation_results'][consigliere_name].append(investigation_result)
+        
+        # Ajouter à l'historique global
+        game['investigation_history'].append(investigation_result)
+        
+        return True, investigation_result['result_message']
+    
+    def _get_role_display_name(self, role):
+        """Retourne le nom d'affichage d'un rôle"""
+        role_names = {
+            Role.VILLAGER: "Villageois",
+            Role.SEER: "Voyant", 
+            Role.WITCH: "Sorcière",
+            Role.GUARD: "Garde",
+            Role.HUNTER: "Chasseur",
+            Role.SHERIFF: "Sheriff",
+            Role.INVESTIGATOR: "Investigateur",
+            Role.WEREWOLF: "Loup-Garou",
+            Role.GODFATHER: "Parrain",
+            Role.MAFIOSO: "Mafioso", 
+            Role.BLACKMAILER: "Maître-Chanteur",
+            Role.CONSIGLIERE: "Conseiller"
+        }
+        return role_names.get(role, role.value)
 
 # Global game engine instance
 game_engine = GameEngine() 
